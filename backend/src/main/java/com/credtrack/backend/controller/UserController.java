@@ -2,6 +2,7 @@ package com.credtrack.backend.controller;
 
 import com.credtrack.backend.entity.User;
 import com.credtrack.backend.service.UserService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -20,7 +21,9 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public User getUser(@PathVariable String id) {
-        return userService.getUserById(id).orElse(null);
+    public ResponseEntity<User> getUser(@PathVariable String id) {
+        return userService.getUserById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 }
