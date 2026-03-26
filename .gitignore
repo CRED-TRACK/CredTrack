@@ -20,6 +20,11 @@ Carthage/Build/
 # Sensitive config files
 GoogleService-Info.plist
 **/GoogleService-Info.plist
+**/firebase-service-account.json
+**/.env
+**/.env.*
+**/application-local.properties
+**/application-secrets.properties
 
 # macOS
 .DS_Store
@@ -40,6 +45,22 @@ Desktop.ini
 .idea/
 *.swp
 *.swo
+
+# Maven
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/HELP.md
+!backend/**/src/main/**/target/
+!backend/**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
 
 # Compiled class file
 *.class
