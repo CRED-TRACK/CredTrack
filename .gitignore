@@ -1,3 +1,26 @@
+# Claude Code internal files
+backend/.claude/
+
+# iOS / Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.hmap
+*.ipa
+*.xccheckout
+*.moved-aside
+.swiftpm/
+Pods/
+Carthage/Build/
+
+# Sensitive config files
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+
 # macOS
 .DS_Store
 .AppleDouble
