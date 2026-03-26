@@ -23,6 +23,7 @@ public class UserService {
         if (existingUser.isPresent()) {
             User existing = existingUser.get();
             existing.setLastLogin(LocalDateTime.now());
+            existing.setUpdatedAt(LocalDateTime.now());
             return userRepository.save(existing);
         }
 
