@@ -1,27 +1,40 @@
 import SwiftUI
 import FirebaseCore
-
+import GoogleSignIn
 
 class AppDelegate: NSObject, UIApplicationDelegate {
-  func application(_ application: UIApplication,
-                   didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-    FirebaseApp.configure()
-
-    return true
-  }
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        FirebaseApp.configure()
+        return true
+    }
 }
 
 @main
-struct YourApp: App {
-  // register app delegate for Firebase setup
-  @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+struct CredTrackApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    @StateObject private var appState = AppStateManager()
 
-
-  var body: some Scene {
-    WindowGroup {
-      NavigationView {
-        ContentView()
-      }
+    var body: some Scene {
+        WindowGroup {
+            ZStack {
+                switch appState.currentScreen {
+                case .splash:
+                    SplashView()
+                        .transition(.opacity)
+                case .login:
+                    LoginView()
+                        .transition(.opacity)
+                case .home:
+                    HomeView()
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.35), value: appState.currentScreen)
+            .environmentObject(appState)
+            .onOpenURL { url in
+                GIDSignIn.sharedInstance.handle(url)
+            }
+        }
     }
-  }
 }
