@@ -26,8 +26,16 @@ final class AppStateManager: ObservableObject {
     }
 
     func handleSignInSuccess(token: String) {
-        isLoading = false
-        currentScreen = .home
+        Task {
+            do {
+                _ = try await APIClient.shared.login(token: token)
+                isLoading = false
+                currentScreen = .home
+            } catch {
+                isLoading = false
+                authError = error.localizedDescription
+            }
+        }
     }
 
     func handleSignInFailure() {
