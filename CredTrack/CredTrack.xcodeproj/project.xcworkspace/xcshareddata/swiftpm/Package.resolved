@@ -1,5 +1,5 @@
 {
-  "originHash" : "7ed78cec4688813732ed048994a6c24c5c081e333197fce4007040cea0ee7d0c",
+  "originHash" : "506c94cad90583f98a6248bf5eae42cd0f8e658ff4665a0cd1187d75ba36d5b7",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -137,12 +137,30 @@
       }
     },
     {
+      "identity" : "neopop-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/CRED-CLUB/neopop-ios",
+      "state" : {
+        "revision" : "cb232c3fdfcbda955c6ad7b8ee77b4900da6b0d8",
+        "version" : "1.0.0"
+      }
+    },
+    {
       "identity" : "promises",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/google/promises.git",
       "state" : {
         "revision" : "540318ecedd63d883069ae7f1ed811a2df00b6ac",
         "version" : "2.4.0"
+      }
+    },
+    {
+      "identity" : "synth-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/CRED-CLUB/synth-ios",
+      "state" : {
+        "revision" : "af423debe7c763f7879c115f018d3e63d412b20e",
+        "version" : "1.0.1"
       }
     }
   ],

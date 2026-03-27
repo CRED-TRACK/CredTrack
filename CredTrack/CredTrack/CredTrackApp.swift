@@ -1,11 +1,13 @@
 import SwiftUI
 import FirebaseCore
 import GoogleSignIn
+import Synth
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         FirebaseApp.configure()
+        NeuUtils.baseColor = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1)
         return true
     }
 }
