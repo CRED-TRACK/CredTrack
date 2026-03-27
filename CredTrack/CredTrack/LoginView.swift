@@ -40,34 +40,17 @@ struct LoginView: View {
                         .padding(.bottom, 12)
                 }
 
-                Button(action: handleGoogleSignIn) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.black.opacity(0.35))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(AngularGradient.ctWaveChromatic, lineWidth: 1.5)
-                            )
-
-                        if appState.isLoading {
-                            ProgressView().tint(.white)
-                        } else {
-                            HStack(spacing: 12) {
-                                Image("google_logo")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 22, height: 22)
-
-                                Text("Continue with Google")
-                                    .font(.ctButtonLabel)
-                                    .foregroundColor(.ctTextPrimary)
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
+                GeometryReader { geo in
+                    let btnWidth = geo.size.width - 48
+                    NeuGoogleButton(
+                        width: btnWidth,
+                        isLoading: appState.isLoading,
+                        action: handleGoogleSignIn
+                    )
+                    .frame(width: btnWidth, height: 56)
+                    .position(x: geo.size.width / 2, y: 28)
                 }
-                .disabled(appState.isLoading)
+                .frame(height: 56)
                 .padding(.horizontal, 24)
 
                 Spacer().frame(height: 16)

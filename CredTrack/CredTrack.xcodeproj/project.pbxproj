@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0DABC7662F760B5600092E24 /* Synth in Frameworks */ = {isa = PBXBuildFile; productRef = 0DABC7652F760B5600092E24 /* Synth */; };
+		0DABC76B2F760C5A00092E24 /* NeoPop in Frameworks */ = {isa = PBXBuildFile; productRef = 0DABC76A2F760C5A00092E24 /* NeoPop */; };
 		0DC41DAC2F758F60007E5BC3 /* FirebaseAI in Frameworks */ = {isa = PBXBuildFile; productRef = 0DC41DAB2F758F60007E5BC3 /* FirebaseAI */; };
 		0DC41DAE2F758F60007E5BC3 /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = 0DC41DAD2F758F60007E5BC3 /* FirebaseAILogic */; };
 		0DC41DB02F758F60007E5BC3 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 0DC41DAF2F758F60007E5BC3 /* FirebaseAnalytics */; };
@@ -692,6 +694,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0DABC7662F760B5600092E24 /* Synth in Frameworks */,
 				0DC41DB82F758F60007E5BC3 /* FirebaseAppDistribution-Beta in Frameworks */,
 				0DC41DC42F758F60007E5BC3 /* FirebaseFirestore in Frameworks */,
 				0DC41DBC2F758F60007E5BC3 /* FirebaseAuthCombine-Community in Frameworks */,
@@ -706,6 +709,7 @@
 				0DC41DDA2F758F60007E5BC3 /* FirebaseStorageCombine-Community in Frameworks */,
 				0DC41DC02F758F60007E5BC3 /* FirebaseCrashlytics in Frameworks */,
 				0DC41DD82F758F60007E5BC3 /* FirebaseStorage in Frameworks */,
+				0DABC76B2F760C5A00092E24 /* NeoPop in Frameworks */,
 				0DC41DD62F758F60007E5BC3 /* FirebaseRemoteConfig in Frameworks */,
 				0DC41DCA2F758F60007E5BC3 /* FirebaseFunctionsCombine-Community in Frameworks */,
 				0DC420542F75913E007E5BC3 /* GoogleSignIn in Frameworks */,
@@ -1421,6 +1425,8 @@
 				0DC41DD92F758F60007E5BC3 /* FirebaseStorageCombine-Community */,
 				0DC420532F75913E007E5BC3 /* GoogleSignIn */,
 				0DC420552F75913E007E5BC3 /* GoogleSignInSwift */,
+				0DABC7652F760B5600092E24 /* Synth */,
+				0DABC76A2F760C5A00092E24 /* NeoPop */,
 			);
 			productName = CredTrack;
 			productReference = 0DC41D992F758D02007E5BC3 /* CredTrack.app */;
@@ -1453,6 +1459,8 @@
 			packageReferences = (
 				0DC41DA92F758EDE007E5BC3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				0DC420522F75913E007E5BC3 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				0DABC7642F760B5600092E24 /* XCRemoteSwiftPackageReference "synth-ios" */,
+				0DABC7692F760C5A00092E24 /* XCRemoteSwiftPackageReference "neopop-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0DC41D9A2F758D02007E5BC3 /* Products */;
@@ -1696,6 +1704,22 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		0DABC7642F760B5600092E24 /* XCRemoteSwiftPackageReference "synth-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/CRED-CLUB/synth-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.1;
+			};
+		};
+		0DABC7692F760C5A00092E24 /* XCRemoteSwiftPackageReference "neopop-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/CRED-CLUB/neopop-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
 		0DC41DA92F758EDE007E5BC3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
@@ -1715,6 +1739,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		0DABC7652F760B5600092E24 /* Synth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0DABC7642F760B5600092E24 /* XCRemoteSwiftPackageReference "synth-ios" */;
+			productName = Synth;
+		};
+		0DABC76A2F760C5A00092E24 /* NeoPop */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0DABC7692F760C5A00092E24 /* XCRemoteSwiftPackageReference "neopop-ios" */;
+			productName = NeoPop;
+		};
 		0DC41DAB2F758F60007E5BC3 /* FirebaseAI */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 0DC41DA92F758EDE007E5BC3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
