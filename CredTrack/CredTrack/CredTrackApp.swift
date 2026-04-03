@@ -28,7 +28,7 @@ struct CredTrackApp: App {
                     LoginView()
                         .transition(.opacity)
                 case .home:
-                    HomeView()
+                    MainTabView()
                         .transition(.opacity)
                 }
             }

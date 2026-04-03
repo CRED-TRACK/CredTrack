@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import FirebaseAuth
+import GoogleSignIn
 
 enum AppScreen {
     case splash, login, home
@@ -41,5 +42,11 @@ final class AppStateManager: ObservableObject {
     func handleSignInFailure() {
         isLoading = false
         authError = "Sign-in failed. Please try again."
+    }
+
+    func signOut() {
+        try? Auth.auth().signOut()
+        GIDSignIn.sharedInstance.signOut()
+        currentScreen = .login
     }
 }
