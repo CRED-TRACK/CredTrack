@@ -25,8 +25,9 @@ public class BinRecord {
     @Column(name = "category", length = 50)
     private String category;
 
-    @Column(name = "issuer", length = 255)
-    private String issuer;
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "issuer", referencedColumnName = "issuer_name", nullable = true)
+    private Issuer issuer;
 
     @Column(name = "issuer_phone", length = 50)
     private String issuerPhone;
