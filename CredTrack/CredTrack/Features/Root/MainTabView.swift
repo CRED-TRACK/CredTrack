@@ -22,7 +22,7 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            CardsTab()
+            CardsTab(selectedTab: $selectedTab)
                 .tabItem {
                     Image(systemName: selectedTab == 0 ? "creditcard.fill" : "creditcard")
                     Text("Cards")
@@ -56,23 +56,10 @@ struct MainTabView: View {
 // MARK: - Cards Tab
 
 private struct CardsTab: View {
-    @EnvironmentObject var appState: AppStateManager
+    @Binding var selectedTab: Int
 
     var body: some View {
-        ZStack {
-            Color.ctBackground.ignoresSafeArea()
-            VStack(spacing: 20) {
-                Text("Cards")
-                    .font(.ctHeadline)
-                    .foregroundColor(.ctTextPrimary)
-
-                Button("Sign Out") {
-                    appState.signOut()
-                }
-                .font(.ctButtonLabel)
-                .foregroundColor(.ctGold)
-            }
-        }
+        CardListView(selectedTab: $selectedTab)
     }
 }
 
