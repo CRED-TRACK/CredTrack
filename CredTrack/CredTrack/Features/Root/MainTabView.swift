@@ -11,7 +11,7 @@ struct MainTabView: View {
 
         let item    = UITabBarItemAppearance()
         let dim     = UIColor.NeoPop.Black.c100                   // #8A8A8A  Pop Black 100
-        let active  = UIColor.NeoPop.Manna.c500                   // #FFCB45  Manna 500
+        let active  = UIColor.white
         let tabFont = UIFont.gilroy(.medium, size: 10)
         item.normal.iconColor             = dim
         item.normal.titleTextAttributes   = [.foregroundColor: dim,    .font: tabFont]
@@ -46,7 +46,7 @@ struct MainTabView: View {
                 }
                 .tag(2)
 
-            PlaceholderTab(title: "Profile")
+            ProfileView()
                 .tabItem {
                     Image(systemName: selectedTab == 3 ? "person.fill" : "person")
                     Text("Profile")

@@ -8,7 +8,6 @@ extension UIColor {
     static let popBlack     = UIColor(red: 0.071, green: 0.071, blue: 0.071, alpha: 1) // #121212
     static let popDeepBlack = UIColor(red: 0.051, green: 0.051, blue: 0.051, alpha: 1) // #0D0D0D
     static let popBorder    = UIColor(red: 0.263, green: 0.263, blue: 0.263, alpha: 1) // #434343
-    static let popYellow    = UIColor.NeoPop.Manna.c500  // #FFCB45 — CRED CTA yellow (Manna 500)
 }
 
 // MARK: - Floating button
@@ -50,10 +49,13 @@ final class PopButtonHost: UIView {
 // MARK: - NeoPopFloatingButton
 
 struct NeoPopFloatingButton: UIViewRepresentable {
-    let title:     String
-    var isEnabled: Bool   = true
-    var shimmer:   Bool   = false
-    let action:    () -> Void
+    let title:      String
+    var isEnabled:  Bool    = true
+    var shimmer:    Bool    = false
+    var faceColor:  UIColor = .white
+    var labelColor: UIColor = .black
+    var showArrow:  Bool    = true
+    let action:     () -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(action: action) }
 
@@ -67,9 +69,12 @@ struct NeoPopFloatingButton: UIViewRepresentable {
 
         // Configure once bounds are known (non-zero) so reconfigurePopViews()
         // can compute the correct 3D inclination angle.
-        let shimmerFlag = shimmer
-        let titleStr    = title
-        let enabled     = isEnabled
+        let shimmerFlag  = shimmer
+        let titleStr     = title
+        let enabled      = isEnabled
+        let faceCol      = faceColor
+        let labelCol     = labelColor
+        let arrowFlag    = showArrow
 
         host.onFirstLayout = { btn in
             if shimmerFlag {
@@ -104,17 +109,18 @@ struct NeoPopFloatingButton: UIViewRepresentable {
                 ))
                 btn.startShimmerAnimation()
             } else {
-                // ── Continue — plain white ───────────────────────────────────────
+                // ── Configurable face — Continue (white) or destructive (red) ────
                 btn.configureFloatingButton(withModel: PopFloatingButton.Model(
-                    backgroundColor: .white,
+                    backgroundColor: faceCol,
                     shadowColor:     .popDeepBlack,
                     edgeWidth:       9
                 ))
+                let displayTitle = arrowFlag ? titleStr + "  →" : titleStr
                 btn.configureButtonContent(withModel: PopButtonContainerView.Model(
                     attributedTitle: NSAttributedString(
-                        string: titleStr + "  →",
+                        string: displayTitle,
                         attributes: [
-                            .foregroundColor: UIColor.black,
+                            .foregroundColor: labelCol,
                             .font: UIFont.gilroy(.semiBold, size: 16)
                         ]
                     ),
@@ -137,6 +143,88 @@ struct NeoPopFloatingButton: UIViewRepresentable {
         guard host.button.isDescendant(of: host) else { return }
         isEnabled ? host.button.enableButton() : host.button.disableButtonImmediately(withAlpha: true)
     }
+
+    final class Coordinator: NSObject {
+        let action: () -> Void
+        init(action: @escaping () -> Void) { self.action = action }
+        @objc func tapped() { action() }
+    }
+}
+
+// MARK: - NeoPopElevatedButton
+// Wraps NeoPop's PopButton — the 3D bottomRight elevated style.
+// Uses the same deferred-layout pattern as PopButtonHost so
+// configurePopButton is never called with a zero frame.
+
+final class PopElevatedButtonHost: UIView {
+    let button = PopButton()
+    private var configured = false
+    var onFirstLayout: ((PopButton) -> Void)?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        button.frame = bounds
+        button.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        addSubview(button)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard !bounds.isEmpty, !configured else { return }
+        configured = true
+        onFirstLayout?(button)
+    }
+}
+
+struct NeoPopElevatedButton: UIViewRepresentable {
+    let title:          String
+    var faceColor:      UIColor = .white
+    var labelColor:     UIColor = .black
+    var superViewColor: UIColor = .popDeepBlack
+    let action:         () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(action: action) }
+
+    func makeUIView(context: Context) -> PopElevatedButtonHost {
+        let host = PopElevatedButtonHost()
+        host.button.addTarget(context.coordinator,
+                              action: #selector(Coordinator.tapped),
+                              for: .touchUpInside)
+
+        let faceCol      = faceColor
+        let labelCol     = labelColor
+        let superCol     = superViewColor
+        let titleStr     = title
+
+        host.onFirstLayout = { btn in
+            btn.configurePopButton(withModel: PopButton.Model(
+                position:        .bottomRight,
+                backgroundColor: faceCol,
+                superViewColor:  superCol
+            ))
+            btn.configureButtonContent(withModel: PopButtonContainerView.Model(
+                attributedTitle: NSAttributedString(
+                    string: titleStr,
+                    attributes: [
+                        .foregroundColor: labelCol,
+                        .font: UIFont.gilroy(.semiBold, size: 16)
+                    ]
+                ),
+                leftImage:           nil,
+                leftImageTintColor:  nil,
+                rightImage:          nil,
+                rightImageTintColor: nil,
+                leftImageScale:      1.0,
+                rightImageScale:     1.0
+            ))
+        }
+        return host
+    }
+
+    func updateUIView(_ host: PopElevatedButtonHost, context: Context) {}
 
     final class Coordinator: NSObject {
         let action: () -> Void

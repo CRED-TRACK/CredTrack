@@ -6,8 +6,8 @@ extension Color {
     // App semantic tokens — all mapped to NeoPop palette
     static let ctBackground    = Color.NeoPop.Black.c500      // #0D0D0D  Pop Black 500
     static let ctSurface       = Color.NeoPop.Black.c300      // #161616  Pop Black 300
-    static let ctGold          = Color.NeoPop.Manna.c500      // #FFCB45  Manna 500
-    static let ctGoldLight     = Color.NeoPop.Manna.c400      // #FFDB7D  Manna 400
+    static let ctGold          = Color.NeoPop.White.c500      // #FFFFFF  Pop White
+    static let ctGoldLight     = Color.NeoPop.White.c300      // #EFEFEF  Pop White 300
     static let ctTextPrimary   = Color.NeoPop.White.c500      // #FFFFFF  Pop White 500
     static let ctTextSecondary = Color.NeoPop.Black.c100      // #8A8A8A  Pop Black 100
 
