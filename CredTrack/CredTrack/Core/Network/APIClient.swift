@@ -44,6 +44,19 @@ struct UserCardDTO: Decodable {
     }
 }
 
+struct BINResponse: Decodable {
+    let brand:      String?
+    let issuerName: String?
+    let bankKey:    String?
+}
+
+struct AddCardRequest: Encodable {
+    let cardProductId:  Int
+    let cardHolderName: String
+    let lastFour:       String
+    let creditLimit:    Double?
+}
+
 struct CardProductDTO: Decodable {
     let id:           Int
     let issuerName:   String
@@ -96,6 +109,12 @@ final class APIClient {
         return d
     }()
 
+    private let encoder: JSONEncoder = {
+        let e = JSONEncoder()
+        e.keyEncodingStrategy = .convertToSnakeCase
+        return e
+    }()
+
     // MARK: Auth
 
     func login(token: String) async throws -> LoginResponse {
@@ -105,9 +124,23 @@ final class APIClient {
 
     // MARK: Card Products
 
-    func fetchCardProducts() async throws -> [CardProductDTO] {
-        let data = try await get("/card-products")
+    /// Pass `issuer` to filter by bank — used in add-card flow after BIN lookup.
+    func fetchCardProducts(issuer: String? = nil) async throws -> [CardProductDTO] {
+        var path = "/card-products"
+        if let issuer, !issuer.isEmpty,
+           let encoded = issuer.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path += "?issuer=\(encoded)"
+        }
+        let data = try await get(path)
         return try decoder.decode([CardProductDTO].self, from: data)
+    }
+
+    // MARK: BIN Lookup
+
+    func lookupBIN(_ cardNumber: String) async throws -> BINResponse {
+        let digits = String(cardNumber.filter(\.isNumber).prefix(8))
+        let data   = try await get("/bins/\(digits)")
+        return try decoder.decode(BINResponse.self, from: data)
     }
 
     // MARK: User Cards
@@ -117,6 +150,13 @@ final class APIClient {
         let path  = includeInactive ? "/user-cards?include_inactive=true" : "/user-cards"
         let data  = try await get(path, bearerToken: token)
         return try decoder.decode([UserCardDTO].self, from: data)
+    }
+
+    func addUserCard(_ req: AddCardRequest) async throws -> UserCardDTO {
+        let token = try await currentToken()
+        let body  = try encoder.encode(req)
+        let data  = try await post("/user-cards", body: body, bearerToken: token)
+        return try decoder.decode(UserCardDTO.self, from: data)
     }
 
     // MARK: - Private helpers
@@ -130,6 +170,24 @@ final class APIClient {
                 else         { cont.resume(throwing: error ?? APIError.unauthorized) }
             }
         }
+    }
+
+    private func post(_ path: String, body: Data, bearerToken: String? = nil) async throws -> Data {
+        guard let url = URL(string: "\(APIConfig.baseURL)\(path)") else { throw APIError.invalidURL }
+        var request        = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpBody   = body
+        if let token = bearerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw APIError.serverError(0) }
+        guard (200...299).contains(http.statusCode) else {
+            throw http.statusCode == 401 ? APIError.unauthorized : APIError.serverError(http.statusCode)
+        }
+        return data
     }
 
     private func get(_ path: String, bearerToken: String? = nil) async throws -> Data {

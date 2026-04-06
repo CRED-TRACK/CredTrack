@@ -4,6 +4,7 @@ import Synth
 struct CardListView: View {
     @Binding var selectedTab: Int
     @StateObject private var vm = UserCardsViewModel()
+    @State private var showAddCard = false
 
     var body: some View {
         Group {
@@ -18,6 +19,10 @@ struct CardListView: View {
         }
         .background(Color.ctSurface.ignoresSafeArea())
         .task { await vm.load() }
+        .sheet(isPresented: $showAddCard) {
+            AddCardView { vm.reload() }
+                .presentationBackground(Color.ctSurface)
+        }
     }
 
     // MARK: - Card scroll
@@ -69,7 +74,7 @@ struct CardListView: View {
                     .foregroundColor(.ctTextSecondary)
             }
             Spacer()
-            AddNewButton()
+            AddNewButton { showAddCard = true }
                 .frame(width: 130, height: 44)
         }
         .padding(.horizontal, 24)
@@ -147,6 +152,9 @@ private struct PressableCard: View {
 // MARK: - Synth elevatedSoft "Add New" button
 
 private struct AddNewButton: UIViewRepresentable {
+    let action: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(action: action) }
 
     func makeUIView(context: Context) -> UIButton {
         let btn = UIButton(frame: CGRect(x: 0, y: 0, width: 130, height: 44))
@@ -161,8 +169,17 @@ private struct AddNewButton: UIViewRepresentable {
                 .withTintColor(.white, renderingMode: .alwaysOriginal),
             imageDimension: 14
         )
+        btn.addTarget(context.coordinator,
+                      action: #selector(Coordinator.tapped),
+                      for: .touchUpInside)
         return btn
     }
 
     func updateUIView(_ uiView: UIButton, context: Context) {}
+
+    final class Coordinator: NSObject {
+        let action: () -> Void
+        init(action: @escaping () -> Void) { self.action = action }
+        @objc func tapped() { action() }
+    }
 }

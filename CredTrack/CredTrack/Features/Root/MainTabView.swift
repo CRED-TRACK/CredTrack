@@ -7,16 +7,16 @@ struct MainTabView: View {
     init() {
         let appearance = UITabBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1)
+        appearance.backgroundColor = UIColor.NeoPop.Black.c300   // #161616  Pop Black 300
 
-        let item = UITabBarItemAppearance()
-        let dimGray  = UIColor(red: 0.54, green: 0.54, blue: 0.54, alpha: 1)
-        let gold     = UIColor(red: 0.79, green: 0.66, blue: 0.30, alpha: 1)
-        let tabFont  = UIFont.gilroy(.medium, size: 10)
-        item.normal.iconColor             = dimGray
-        item.normal.titleTextAttributes   = [.foregroundColor: dimGray,  .font: tabFont]
-        item.selected.iconColor           = gold
-        item.selected.titleTextAttributes = [.foregroundColor: gold, .font: tabFont]
+        let item    = UITabBarItemAppearance()
+        let dim     = UIColor.NeoPop.Black.c100                   // #8A8A8A  Pop Black 100
+        let active  = UIColor.NeoPop.Manna.c500                   // #FFCB45  Manna 500
+        let tabFont = UIFont.gilroy(.medium, size: 10)
+        item.normal.iconColor             = dim
+        item.normal.titleTextAttributes   = [.foregroundColor: dim,    .font: tabFont]
+        item.selected.iconColor           = active
+        item.selected.titleTextAttributes = [.foregroundColor: active, .font: tabFont]
 
         appearance.stackedLayoutAppearance = item
         UITabBar.appearance().standardAppearance  = appearance

@@ -1,5 +1,4 @@
 import SwiftUI
-import FirebaseAuth
 
 struct HomeView: View {
     @EnvironmentObject var appState: AppStateManager
@@ -13,16 +12,11 @@ struct HomeView: View {
                     .foregroundColor(.ctTextPrimary)
 
                 Button("Sign Out") {
-                    try? Auth.auth().signOut()
-                    appState.currentScreen = .login
+                    appState.signOut()
                 }
                 .font(.ctButtonLabel)
                 .foregroundColor(.ctGold)
             }
         }
     }
-}
-
-#Preview {
-    HomeView()
 }

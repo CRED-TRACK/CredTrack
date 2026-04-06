@@ -178,6 +178,7 @@ struct CreditCardView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: CreditCardUIView, context: Context) {
+        uiView.configure(with: card)
         uiView.setPressed(isPressed)
     }
 }
