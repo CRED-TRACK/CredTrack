@@ -10,10 +10,13 @@ struct MainTabView: View {
         appearance.backgroundColor = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1)
 
         let item = UITabBarItemAppearance()
-        item.normal.iconColor    = UIColor(red: 0.54, green: 0.54, blue: 0.54, alpha: 1)
-        item.normal.titleTextAttributes  = [.foregroundColor: UIColor(red: 0.54, green: 0.54, blue: 0.54, alpha: 1)]
-        item.selected.iconColor  = UIColor(red: 0.79, green: 0.66, blue: 0.30, alpha: 1)
-        item.selected.titleTextAttributes = [.foregroundColor: UIColor(red: 0.79, green: 0.66, blue: 0.30, alpha: 1)]
+        let dimGray  = UIColor(red: 0.54, green: 0.54, blue: 0.54, alpha: 1)
+        let gold     = UIColor(red: 0.79, green: 0.66, blue: 0.30, alpha: 1)
+        let tabFont  = UIFont.gilroy(.medium, size: 10)
+        item.normal.iconColor             = dimGray
+        item.normal.titleTextAttributes   = [.foregroundColor: dimGray,  .font: tabFont]
+        item.selected.iconColor           = gold
+        item.selected.titleTextAttributes = [.foregroundColor: gold, .font: tabFont]
 
         appearance.stackedLayoutAppearance = item
         UITabBar.appearance().standardAppearance  = appearance

@@ -52,24 +52,24 @@ final class CreditCardUIView: NeuCardSurface {
 
         // Variant name — top left
         nameLabel.frame = CGRect(x: 22, y: 16, width: 180, height: 18)
-        nameLabel.font  = .systemFont(ofSize: 12, weight: .semibold)
+        nameLabel.font  = .gilroy(.semiBold, size: 12)
         nameLabel.alpha = 0.90
         addSubview(nameLabel)
 
-        // Card number
+        // Card number — monospaced so digits stay vertically aligned
         numberLabel.frame = CGRect(x: 26, y: cardHeight - 62, width: cardWidth - 52, height: 24)
         numberLabel.font  = .monospacedSystemFont(ofSize: 16, weight: .light)
         addSubview(numberLabel)
 
         // Cardholder name — bottom left
         holderLabel.frame = CGRect(x: 26, y: cardHeight - 32, width: 180, height: 18)
-        holderLabel.font  = .systemFont(ofSize: 10, weight: .medium)
+        holderLabel.font  = .gilroy(.medium, size: 10)
         holderLabel.alpha = 0.75
         addSubview(holderLabel)
 
         // Expiry — bottom right
         expLabel.frame         = CGRect(x: cardWidth - 96, y: cardHeight - 32, width: 70, height: 18)
-        expLabel.font          = .systemFont(ofSize: 10, weight: .regular)
+        expLabel.font          = .gilroy(.regular, size: 10)
         expLabel.textAlignment = .right
         expLabel.alpha         = 0.65
         addSubview(expLabel)
@@ -120,7 +120,7 @@ private final class IssuerLogoView: UIView {
         imageView.contentMode   = .scaleAspectFit
         imageView.clipsToBounds = true
         addSubview(imageView)
-        label.font  = .systemFont(ofSize: 10, weight: .semibold)
+        label.font  = .gilroy(.semiBold, size: 10)
         label.alpha = 0.70
         addSubview(label)
     }

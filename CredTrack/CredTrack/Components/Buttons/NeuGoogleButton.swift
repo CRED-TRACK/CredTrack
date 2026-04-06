@@ -12,7 +12,7 @@ struct NeuGoogleButton: UIViewRepresentable {
 
         let attrs: [NSAttributedString.Key: Any] = [
             .foregroundColor: UIColor.white,
-            .font: UIFont.systemFont(ofSize: 16, weight: .semibold)
+            .font: UIFont.gilroy(.semiBold, size: 16)
         ]
         button.applyNeuBtnStyle(
             type: .elevatedSoft,

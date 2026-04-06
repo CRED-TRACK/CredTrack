@@ -84,7 +84,7 @@ private struct AddNewButton: UIViewRepresentable {
 
         let attrs: [NSAttributedString.Key: Any] = [
             .foregroundColor: UIColor.white,
-            .font: UIFont.systemFont(ofSize: 15, weight: .semibold)
+            .font: UIFont.gilroy(.semiBold, size: 15)
         ]
         btn.applyNeuBtnStyle(
             type: .elevatedSoft,

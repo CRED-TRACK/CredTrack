@@ -4,6 +4,17 @@
 <dict>
 	<key>BASE_URL</key>
 	<string>http://localhost:8080</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Gilroy-Regular.ttf</string>
+		<string>Gilroy-Medium.ttf</string>
+		<string>Gilroy-SemiBold.ttf</string>
+		<string>Gilroy-Bold.ttf</string>
+		<string>Gilroy-ExtraBold.ttf</string>
+		<string>PPCirka-Regular.ttf</string>
+		<string>PPCirka-Medium.ttf</string>
+		<string>PPCirka-Bold.ttf</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
