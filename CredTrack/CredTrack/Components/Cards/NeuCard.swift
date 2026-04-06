@@ -81,18 +81,3 @@ class NeuCardSurface: UIView {
         CATransaction.commit()
     }
 }
-
-// MARK: - UIColor elevation helpers (mirrors Synth internal methods)
-
-extension UIColor {
-    func lightened(by fraction: CGFloat) -> UIColor {
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        getRed(&r, green: &g, blue: &b, alpha: &a)
-        return UIColor(red: min(r+(1-r)*fraction,1), green: min(g+(1-g)*fraction,1), blue: min(b+(1-b)*fraction,1), alpha: a)
-    }
-    func darkened(by fraction: CGFloat) -> UIColor {
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        getRed(&r, green: &g, blue: &b, alpha: &a)
-        return UIColor(red: max(r-r*fraction,0), green: max(g-g*fraction,0), blue: max(b-b*fraction,0), alpha: a)
-    }
-}

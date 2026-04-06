@@ -1,53 +1,24 @@
 import SwiftUI
-import Synth
-
-// MARK: - Model
-
-enum CardNetwork {
-    case visa, mastercard, amex, discover
-}
-
-struct DemoCard: Identifiable {
-    let id:          UUID = UUID()
-    let cardName:    String
-    let bank:        String
-    let lastFour:    String
-    let network:     CardNetwork
-    let faceColor:   UIColor
-    let gradientEnd: UIColor
-    let textColor:   UIColor
-
-    static let allDemoCards: [DemoCard] = [
-        DemoCard(
-            cardName:    "Sapphire Reserve",
-            bank:        "Chase",
-            lastFour:    "4821",
-            network:     .visa,
-            faceColor:   UIColor(red: 0.10, green: 0.20, blue: 0.42, alpha: 1),
-            gradientEnd: UIColor(red: 0.06, green: 0.12, blue: 0.26, alpha: 1),
-            textColor:   .white
-        ),
-    ]
-}
 
 // MARK: - Dimensions
 
 let cardWidth:  CGFloat = 340
 let cardHeight: CGFloat = 214
 
-// MARK: - UIKit Card View
-// Inherits the neumorphic elevated surface from NeuCardSurface (NeuCard.swift).
-// CreditCardUIView only adds card-specific content: chip, network logo, labels.
+// MARK: - CreditCardUIView
+// Renders a CardModel onto a NeuCardSurface.
+// All design decisions (layout, fonts, sizes) live here.
+// All data decisions (colours, issuer, network) live in CardModel.
 
 final class CreditCardUIView: NeuCardSurface {
 
-    private let chipView     = UIView()
-    private let networkView  = NetworkLogoView()
-    private let bankLabel    = UILabel()
-    private let nameLabel    = UILabel()
-    private let numberLabel  = UILabel()
-    private let holderLabel  = UILabel()
-    private let expLabel     = UILabel()
+    private let chipView    = UIView()
+    private let issuerView  = IssuerLogoView()
+    private let networkView = NetworkLogoView()
+    private let nameLabel   = UILabel()
+    private let numberLabel = UILabel()
+    private let holderLabel = UILabel()
+    private let expLabel    = UILabel()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -56,11 +27,15 @@ final class CreditCardUIView: NeuCardSurface {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    // MARK: - Layout
+    // MARK: - Layout (structure only — no data)
 
     private func buildLayout() {
+        // Issuer logo — full card canvas, image centred inside
+        issuerView.frame = CGRect(x: 0, y: 0, width: cardWidth, height: cardHeight)
+        addSubview(issuerView)
+
         // Chip
-        chipView.frame              = CGRect(x: 26, y: 78, width: 42, height: 33)
+        chipView.frame              = CGRect(x: 16, y: 74, width: 42, height: 33)
         chipView.layer.cornerRadius = 6
         addSubview(chipView)
 
@@ -71,55 +46,51 @@ final class CreditCardUIView: NeuCardSurface {
         chipView.addSubview(hLine)
         chipView.addSubview(vLine)
 
-        // Network — top right
-        networkView.frame = CGRect(x: cardWidth - 76, y: 20, width: 56, height: 28)
+        // Network logo — top right
+        networkView.frame = CGRect(x: cardWidth - 100, y: 14, width: 74, height: 36)
         addSubview(networkView)
 
-        // Bank — top left
-        bankLabel.frame = CGRect(x: 26, y: 22, width: 200, height: 16)
-        bankLabel.font  = .systemFont(ofSize: 11, weight: .medium)
-        bankLabel.alpha = 0.65
-        addSubview(bankLabel)
-
-        // Card name
-        nameLabel.frame = CGRect(x: 26, y: 40, width: 220, height: 22)
-        nameLabel.font  = .systemFont(ofSize: 15, weight: .semibold)
+        // Variant name — top left
+        nameLabel.frame = CGRect(x: 22, y: 16, width: 180, height: 18)
+        nameLabel.font  = .systemFont(ofSize: 12, weight: .semibold)
+        nameLabel.alpha = 0.90
         addSubview(nameLabel)
 
-        // Number
-        numberLabel.frame = CGRect(x: 26, y: cardHeight - 66, width: cardWidth - 52, height: 26)
-        numberLabel.font  = .monospacedSystemFont(ofSize: 17, weight: .light)
+        // Card number
+        numberLabel.frame = CGRect(x: 26, y: cardHeight - 62, width: cardWidth - 52, height: 24)
+        numberLabel.font  = .monospacedSystemFont(ofSize: 16, weight: .light)
         addSubview(numberLabel)
 
-        // Holder
-        holderLabel.frame = CGRect(x: 26, y: cardHeight - 34, width: 180, height: 18)
-        holderLabel.font  = .systemFont(ofSize: 11, weight: .medium)
+        // Cardholder name — bottom left
+        holderLabel.frame = CGRect(x: 26, y: cardHeight - 32, width: 180, height: 18)
+        holderLabel.font  = .systemFont(ofSize: 10, weight: .medium)
         holderLabel.alpha = 0.75
         addSubview(holderLabel)
 
         // Expiry — bottom right
-        expLabel.frame         = CGRect(x: cardWidth - 100, y: cardHeight - 34, width: 74, height: 18)
-        expLabel.font          = .systemFont(ofSize: 11, weight: .regular)
+        expLabel.frame         = CGRect(x: cardWidth - 96, y: cardHeight - 32, width: 70, height: 18)
+        expLabel.font          = .systemFont(ofSize: 10, weight: .regular)
         expLabel.textAlignment = .right
         expLabel.alpha         = 0.65
         addSubview(expLabel)
     }
 
-    // MARK: - Configure
-    func configure(with card: DemoCard) {
-        // Apply the Synth elevated-soft surface (gradient, border, shadows)
+    // MARK: - Configure (data → view, no layout logic)
+
+    func configure(with card: CardModel) {
         applyElevatedSoftStyle(baseColor: card.faceColor, gradientEnd: card.gradientEnd)
 
-        // ── Chip ──────────────────────────────────────────────────────────
         let tc = card.textColor
+
         chipView.backgroundColor   = UIColor(red: 0.82, green: 0.70, blue: 0.34, alpha: 0.9)
         chipView.layer.borderWidth = 0.5
         chipView.layer.borderColor = UIColor.black.withAlphaComponent(0.20).cgColor
 
-        networkView.configure(network: card.network, tint: tc)
+        issuerView.configure(assetName: card.issuerAsset,
+                             fallbackText: card.bank,
+                             tint: tc)
 
-        bankLabel.text      = card.bank.uppercased()
-        bankLabel.textColor = tc
+        networkView.configure(network: card.network)
 
         nameLabel.text      = card.cardName
         nameLabel.textColor = tc
@@ -137,49 +108,78 @@ final class CreditCardUIView: NeuCardSurface {
     }
 }
 
-// MARK: - Network Logo
+// MARK: - IssuerLogoView
 
-private final class NetworkLogoView: UIView {
+private final class IssuerLogoView: UIView {
 
-    private let label = UILabel()
+    private let imageView = UIImageView()
+    private let label     = UILabel()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        label.frame            = bounds
-        label.textAlignment    = .right
-        label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        imageView.contentMode   = .scaleAspectFit
+        imageView.clipsToBounds = true
+        addSubview(imageView)
+        label.font  = .systemFont(ofSize: 10, weight: .semibold)
+        label.alpha = 0.70
         addSubview(label)
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(network: CardNetwork, tint: UIColor) {
-        switch network {
-        case .visa:
-            label.text      = "VISA"
-            let base        = UIFont.systemFont(ofSize: 20, weight: .black).fontDescriptor
-            label.font      = UIFont(descriptor: base.withSymbolicTraits(.traitItalic) ?? base, size: 20)
-            label.textColor = tint
-        case .mastercard:
-            label.text      = "mc"
-            label.font      = .systemFont(ofSize: 22, weight: .black)
-            label.textColor = tint
-        case .amex:
-            label.text      = "AMEX"
-            label.font      = .systemFont(ofSize: 13, weight: .bold)
-            label.textColor = tint.withAlphaComponent(0.85)
-        case .discover:
-            label.text      = "DISCOVER"
-            label.font      = .systemFont(ofSize: 10, weight: .semibold)
-            label.textColor = tint.withAlphaComponent(0.85)
+    func configure(assetName: String?, fallbackText: String, tint: UIColor) {
+        if let name = assetName, let img = UIImage(named: name) {
+            // Cap to 38% height × 55% width — logo is prominent but never dominates
+            let maxH = bounds.height * 0.38
+            let maxW = bounds.width  * 0.55
+            // Scale proportionally to fit inside both caps
+            let scaleH = maxH / img.size.height
+            let scaleW = maxW / img.size.width
+            let scale  = min(scaleH, scaleW)
+            let w = img.size.width  * scale
+            let h = img.size.height * scale
+            // Always centred — both axes
+            imageView.frame    = CGRect(x: (bounds.width  - w) / 2,
+                                        y: (bounds.height - h) / 2,
+                                        width: w, height: h)
+            imageView.image    = img
+            imageView.isHidden = false
+            label.isHidden     = true
+        } else {
+            label.frame        = bounds
+            label.text         = fallbackText.uppercased()
+            label.textColor    = tint
+            label.isHidden     = false
+            imageView.isHidden = true
         }
+    }
+}
+
+// MARK: - NetworkLogoView
+
+private final class NetworkLogoView: UIView {
+
+    private let imageView = UIImageView()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        imageView.frame            = bounds
+        imageView.contentMode      = .scaleAspectFit
+        imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        addSubview(imageView)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func configure(network: CardNetwork) {
+        imageView.image = UIImage(named: network.assetName)
     }
 }
 
 // MARK: - SwiftUI Wrapper
 
 struct CreditCardView: UIViewRepresentable {
-    let card:      DemoCard
+    let card:      CardModel
     var isPressed: Bool = false
 
     func makeUIView(context: Context) -> CreditCardUIView {
@@ -189,7 +189,6 @@ struct CreditCardView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: CreditCardUIView, context: Context) {
-        // SwiftUI tells UIKit when the card is pressed → gradient swaps
         uiView.setPressed(isPressed)
     }
 }

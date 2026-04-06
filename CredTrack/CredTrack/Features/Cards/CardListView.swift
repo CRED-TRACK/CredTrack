@@ -3,7 +3,7 @@ import Synth
 
 struct CardListView: View {
     @Binding var selectedTab: Int
-    private let cards = DemoCard.allDemoCards
+    private let cards = CardModel.allDemoCards
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -45,7 +45,7 @@ struct CardListView: View {
 // The gradient swap is driven into UIKit via updateUIView(isPressed:).
 
 private struct PressableCard: View {
-    let card:   DemoCard
+    let card:   CardModel
     let onTap:  () -> Void
 
     @GestureState private var isPressed = false
