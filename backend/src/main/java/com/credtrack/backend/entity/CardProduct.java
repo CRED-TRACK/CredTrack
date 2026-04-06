@@ -9,34 +9,38 @@ import java.util.Map;
 
 @Entity
 @Table(name = "card_products")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class CardProduct {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "issuer_name", referencedColumnName = "issuer_name", nullable = false)
-    private Issuer issuer;
+    @Column(name = "issuer_name", length = 255)
+    private String issuerName;        // display label e.g. "JPMORGAN CHASE BANK N.A."
+
+    @Column(name = "bank_key", length = 50)
+    private String bankKey;           // stable key e.g. "CHASE" — used for logo + product lookup
 
     @Column(name = "product_name", nullable = false, length = 150)
-    private String productName;           // Display name e.g. "Sapphire Preferred"
+    private String productName;       // e.g. "Sapphire Reserve"
 
     @Column(name = "official_name", nullable = false, length = 255)
-    private String officialName;          // Exact canonical name for internet lookups
-
-    @Column(name = "image_filename", length = 150)
-    private String imageFilename;         // Filename in Firebase Storage, null = fallback to issuer color
+    private String officialName;
 
     @Column(name = "brand", length = 50)
-    private String brand;                 // VISA, MASTERCARD, AMEX, DISCOVER
+    private String brand;             // VISA | MASTERCARD | AMEX | DISCOVER
+
+    @Column(name = "face_color", length = 7, nullable = false)
+    private String faceColor;
+
+    @Column(name = "gradient_end", length = 7, nullable = false)
+    private String gradientEnd;
+
+    @Column(name = "text_color", length = 7, nullable = false)
+    private String textColor;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "link", columnDefinition = "jsonb")
-    private Map<String, String> link;     // e.g. {"apply": "...", "rewards": "...", "info": "..."}
+    private Map<String, String> link;
 }

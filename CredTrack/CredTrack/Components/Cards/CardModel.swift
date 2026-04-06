@@ -9,18 +9,15 @@ enum CardNetwork: String {
     case discover    = "DISCOVER"
     case unknown
 
-    // Maps raw API brand string → enum
-    // e.g. "VISA", "Visa", "visa" all resolve correctly
     static func from(_ brand: String) -> CardNetwork {
         let upper = brand.uppercased()
-        if upper.contains("VISA")              { return .visa }
-        if upper.contains("MASTERCARD")        { return .mastercard }
-        if upper.contains("AMERICAN EXPRESS")  { return .amex }
-        if upper.contains("DISCOVER")          { return .discover }
+        if upper.contains("VISA")             { return .visa }
+        if upper.contains("MASTERCARD")       { return .mastercard }
+        if upper.contains("AMERICAN EXPRESS") { return .amex }
+        if upper.contains("DISCOVER")         { return .discover }
         return .unknown
     }
 
-    // Asset name in Assets.xcassets
     var assetName: String {
         switch self {
         case .visa:       return "VISA"
@@ -32,45 +29,41 @@ enum CardNetwork: String {
     }
 }
 
-// MARK: - IssuerResolver
-// Maps raw issuer names from bin_records CSV/API → local asset names.
-// Uses contains-matching so "JPMORGAN CHASE BANK, N.A." → "chase".
+// MARK: - BankKey → logo asset
+// Maps the stable bank_key from the API to a local asset name in Assets.xcassets.
+// Add an entry here whenever a new logo asset is added.
 
-enum IssuerResolver {
-    static func assetName(for issuerName: String) -> String? {
-        let u = issuerName.uppercased()
-        if u.contains("JPMORGAN CHASE") || u.contains("CHASE BANK")   { return "chase" }
-        if u.contains("AMERICAN EXPRESS")                              { return "amex" }
-        if u.contains("BANK OF AMERICA")                               { return "bofa" }
-        if u.contains("WELLS FARGO")                                   { return "wellsfargo" }
-        if u.contains("U.S. BANK") || u.contains("US BANK")           { return "usbank" }
-        if u.contains("CAPITAL ONE")                                   { return "capitalone" }
-        if u.contains("CITIBANK") || u.contains("CITI ")              { return "citi" }
-        if u.contains("DISCOVER")                                      { return "discover 1" }
-        return nil   // no local asset → IssuerLogoView shows text fallback
-    }
-}
+private let bankKeyAssets: [String: String] = [
+    "CHASE":        "chase",
+    "AMEX":         "amex",
+    "CITI":         "citi",
+    "CAPITAL_ONE":  "capitalone",
+    "BOA":          "bofa",
+    "WELLS_FARGO":  "wellsfargo",
+    "DISCOVER":     "discover 1",
+    "US_BANK":      "usbank",
+]
 
 // MARK: - CardModel
 
 struct CardModel: Identifiable {
     let id:          UUID   = UUID()
-    let cardName:    String           // product variant, e.g. "Sapphire Reserve"
-    let bank:        String           // display issuer name, e.g. "Chase"
+    let cardName:    String
+    let bank:        String
     let lastFour:    String
     let network:     CardNetwork
+    let bankKey:     String?          // e.g. "CHASE" — drives logo selection
     let issuerAsset: String?          // resolved asset name, nil = text fallback
     let faceColor:   UIColor
     let gradientEnd: UIColor
     let textColor:   UIColor
 
-    // MARK: Init from raw API / BIN data
     init(
         cardName:    String,
         bank:        String,
         lastFour:    String,
-        brandString: String,          // raw brand from API e.g. "VISA"
-        issuerName:  String,          // raw issuer from API e.g. "JPMORGAN CHASE BANK, N.A."
+        brandString: String,
+        bankKey:     String?,
         faceColor:   UIColor,
         gradientEnd: UIColor,
         textColor:   UIColor = .white
@@ -79,28 +72,8 @@ struct CardModel: Identifiable {
         self.bank        = bank
         self.lastFour    = lastFour
         self.network     = CardNetwork.from(brandString)
-        self.issuerAsset = IssuerResolver.assetName(for: issuerName)
-        self.faceColor   = faceColor
-        self.gradientEnd = gradientEnd
-        self.textColor   = textColor
-    }
-
-    // MARK: Convenience init (when you already have resolved values — used by demo data)
-    init(
-        cardName:    String,
-        bank:        String,
-        lastFour:    String,
-        network:     CardNetwork,
-        issuerAsset: String?,
-        faceColor:   UIColor,
-        gradientEnd: UIColor,
-        textColor:   UIColor = .white
-    ) {
-        self.cardName    = cardName
-        self.bank        = bank
-        self.lastFour    = lastFour
-        self.network     = network
-        self.issuerAsset = issuerAsset
+        self.bankKey     = bankKey
+        self.issuerAsset = bankKey.flatMap { bankKeyAssets[$0] }
         self.faceColor   = faceColor
         self.gradientEnd = gradientEnd
         self.textColor   = textColor
@@ -110,7 +83,6 @@ struct CardModel: Identifiable {
 // MARK: - UIColor helpers
 
 extension UIColor {
-    // Parse hex string from API e.g. "#1A3370" or "1A3370"
     convenience init?(hex: String) {
         var h = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         if h.hasPrefix("#") { h = String(h.dropFirst()) }
@@ -123,7 +95,6 @@ extension UIColor {
         )
     }
 
-    // Darker shade of a colour — useful for gradientEnd when API only provides one colour
     func darkened(by fraction: CGFloat) -> UIColor {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         getRed(&r, green: &g, blue: &b, alpha: &a)

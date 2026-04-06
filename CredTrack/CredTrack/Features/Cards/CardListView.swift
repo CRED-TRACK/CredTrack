@@ -3,13 +3,30 @@ import Synth
 
 struct CardListView: View {
     @Binding var selectedTab: Int
-    private let cards = CardModel.allDemoCards
+    @StateObject private var vm = CardProductsViewModel()
 
     var body: some View {
+        Group {
+            switch vm.state {
+            case .idle, .loading:
+                loadingView
+            case .loaded(let cards):
+                cardScroll(cards: cards)
+            case .failed(let msg):
+                errorView(message: msg)
+            }
+        }
+        .background(Color.ctSurface.ignoresSafeArea())
+        .task { await vm.load() }
+    }
+
+    // MARK: - Card scroll
+
+    private func cardScroll(cards: [CardModel]) -> some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
 
-                // ─── Header ───────────────────────────────────────────────
+                // Header
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("My Cards")
@@ -26,27 +43,58 @@ struct CardListView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
 
-                // ─── Cards ────────────────────────────────────────────────
+                // Cards
                 ForEach(cards) { card in
                     PressableCard(card: card) { selectedTab = 3 }
                 }
             }
             .padding(.bottom, 48)
         }
-        .background(Color.ctSurface.ignoresSafeArea())
+    }
+
+    // MARK: - Loading
+
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .progressViewStyle(.circular)
+                .tint(.ctGold)
+                .scaleEffect(1.4)
+            Text("Loading cards…")
+                .font(.ctBody)
+                .foregroundColor(.ctTextSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Error
+
+    private func errorView(message: String) -> some View {
+        VStack(spacing: 20) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 40))
+                .foregroundColor(.ctGold)
+            Text("Couldn't load cards")
+                .font(.ctHeadline)
+                .foregroundColor(.ctTextPrimary)
+            Text(message)
+                .font(.ctBody)
+                .foregroundColor(.ctTextSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Button("Try again") { vm.reload() }
+                .font(.ctButtonLabel)
+                .foregroundColor(.ctGold)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
 // MARK: - Pressable card wrapper
-//
-// SwiftUI owns the press state (@GestureState) and scale animation.
-// DragGesture(minimumDistance:0) starts instantly on touch-down and resets
-// on release — giving us a reliable pressed/idle signal even inside ScrollView.
-// The gradient swap is driven into UIKit via updateUIView(isPressed:).
 
 private struct PressableCard: View {
-    let card:   CardModel
-    let onTap:  () -> Void
+    let card:  CardModel
+    let onTap: () -> Void
 
     @GestureState private var isPressed = false
 
@@ -54,19 +102,16 @@ private struct PressableCard: View {
         CreditCardView(card: card, isPressed: isPressed)
             .frame(width: cardWidth, height: cardHeight)
             .frame(maxWidth: .infinity)
-            // Subtle scale — gradient does the main work, scale adds physicality
             .scaleEffect(isPressed ? 0.985 : 1.0)
             .animation(
                 isPressed
-                    ? .easeIn(duration: 0.08)                           // snap down
-                    : .spring(response: 0.50, dampingFraction: 0.60),  // bounce up
+                    ? .easeIn(duration: 0.08)
+                    : .spring(response: 0.50, dampingFraction: 0.60),
                 value: isPressed
             )
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
-                    // isPressed = true the moment finger touches
                     .updating($isPressed) { _, state, _ in state = true }
-                    // Only navigate when finger lifts with minimal movement (= tap)
                     .onEnded { val in
                         let d = val.translation
                         if abs(d.width) < 10 && abs(d.height) < 10 { onTap() }
@@ -75,13 +120,12 @@ private struct PressableCard: View {
     }
 }
 
-// MARK: - Synth elevatedSoft "Add New" Button
+// MARK: - Synth elevatedSoft "Add New" button
 
 private struct AddNewButton: UIViewRepresentable {
 
     func makeUIView(context: Context) -> UIButton {
         let btn = UIButton(frame: CGRect(x: 0, y: 0, width: 130, height: 44))
-
         let attrs: [NSAttributedString.Key: Any] = [
             .foregroundColor: UIColor.white,
             .font: UIFont.gilroy(.semiBold, size: 15)
@@ -93,7 +137,6 @@ private struct AddNewButton: UIViewRepresentable {
                 .withTintColor(.white, renderingMode: .alwaysOriginal),
             imageDimension: 14
         )
-
         return btn
     }
 

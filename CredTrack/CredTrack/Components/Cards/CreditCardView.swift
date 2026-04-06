@@ -17,8 +17,6 @@ final class CreditCardUIView: NeuCardSurface {
     private let networkView = NetworkLogoView()
     private let nameLabel   = UILabel()
     private let numberLabel = UILabel()
-    private let holderLabel = UILabel()
-    private let expLabel    = UILabel()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -60,19 +58,6 @@ final class CreditCardUIView: NeuCardSurface {
         numberLabel.frame = CGRect(x: 26, y: cardHeight - 62, width: cardWidth - 52, height: 24)
         numberLabel.font  = .monospacedSystemFont(ofSize: 16, weight: .light)
         addSubview(numberLabel)
-
-        // Cardholder name — bottom left
-        holderLabel.frame = CGRect(x: 26, y: cardHeight - 32, width: 180, height: 18)
-        holderLabel.font  = .gilroy(.medium, size: 10)
-        holderLabel.alpha = 0.75
-        addSubview(holderLabel)
-
-        // Expiry — bottom right
-        expLabel.frame         = CGRect(x: cardWidth - 96, y: cardHeight - 32, width: 70, height: 18)
-        expLabel.font          = .gilroy(.regular, size: 10)
-        expLabel.textAlignment = .right
-        expLabel.alpha         = 0.65
-        addSubview(expLabel)
     }
 
     // MARK: - Configure (data → view, no layout logic)
@@ -99,12 +84,6 @@ final class CreditCardUIView: NeuCardSurface {
             string: "••••  ••••  ••••  \(card.lastFour)",
             attributes: [.kern: 1.6, .foregroundColor: tc]
         )
-
-        holderLabel.text      = "JOHN DOE"
-        holderLabel.textColor = tc
-
-        expLabel.text      = "12 / 28"
-        expLabel.textColor = tc
     }
 }
 

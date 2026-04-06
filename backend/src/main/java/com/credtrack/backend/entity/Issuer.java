@@ -24,4 +24,5 @@ public class Issuer {
 
     @Column(name = "color", length = 20)
     private String color;
+
 }

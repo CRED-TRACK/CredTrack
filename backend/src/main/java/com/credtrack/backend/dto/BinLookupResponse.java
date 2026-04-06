@@ -1,6 +1,7 @@
 package com.credtrack.backend.dto;
 
 import com.credtrack.backend.entity.BinRecord;
+import com.credtrack.backend.service.IssuerKeyResolver;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -15,7 +16,8 @@ public class BinLookupResponse {
     private String  category;    // CLASSIC, GOLD, PLATINUM …
 
     // Issuer
-    private String  issuerName;
+    private String  issuerName;   // raw name from BIN data
+    private String  bankKey;      // resolved key e.g. "CHASE" — use for /card-products?issuer= and logo
     private String  issuerPhone;
     private String  issuerUrl;
     private String  issuerColor;
@@ -34,7 +36,9 @@ public class BinLookupResponse {
                 .brand(record.getBrand())
                 .type(record.getType())
                 .category(record.getCategory())
-                .issuerName(hasIssuer  ? record.getIssuer().getIssuerName()  : null)
+                .issuerName(hasIssuer ? record.getIssuer().getIssuerName() : null)
+                .bankKey(IssuerKeyResolver.resolve(
+                        hasIssuer ? record.getIssuer().getIssuerName() : null))
                 .issuerPhone(hasIssuer ? record.getIssuer().getIssuerPhone() : record.getIssuerPhone())
                 .issuerUrl(hasIssuer   ? record.getIssuer().getIssuerUrl()   : record.getIssuerUrl())
                 .issuerColor(hasIssuer ? record.getIssuer().getColor()       : record.getColor())
