@@ -10,7 +10,7 @@ struct LoginResponse: Decodable {
     let name:  String?
 }
 
-struct UserCardDTO: Decodable {
+struct UserCardDTO: Decodable, Identifiable, Hashable {
     let id:             Int
     // Card product info (embedded so no second request needed)
     let productName:    String

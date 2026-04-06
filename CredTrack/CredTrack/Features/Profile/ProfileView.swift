@@ -108,7 +108,7 @@ struct ProfileView: View {
     private func limitString(_ value: Double?) -> String {
         guard let value, value > 0 else { return "—" }
         if value >= 1_000_000 { return String(format: "$%.1fM", value / 1_000_000) }
-        if value >= 1_000     { return String(format: "$%.0fK", value / 1_000) }
+        if value >= 1_000     { return String(format: "$%.1fK", value / 1_000) }
         return String(format: "$%.0f", value)
     }
 

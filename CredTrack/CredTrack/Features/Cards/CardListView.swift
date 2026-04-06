@@ -18,6 +18,10 @@ struct CardListView: View {
             }
         }
         .background(Color.ctSurface.ignoresSafeArea())
+        .navigationBarHidden(true)
+        .navigationDestination(for: UserCardDTO.self) { card in
+            CardDetailView(card: card)
+        }
         .task { await vm.load() }
         .sheet(isPresented: $showAddCard) {
             AddCardView { vm.reload() }
@@ -27,12 +31,12 @@ struct CardListView: View {
 
     // MARK: - Card scroll
 
-    private func cardScroll(cards: [CardModel]) -> some View {
+    private func cardScroll(cards: [UserCardDTO]) -> some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
                 header(count: cards.count)
-                ForEach(cards) { card in
-                    PressableCard(card: card) { selectedTab = 3 }
+                ForEach(cards, id: \.id) { dto in
+                    PressableCard(dto: dto)
                 }
             }
             .padding(.bottom, 48)
@@ -87,7 +91,7 @@ struct CardListView: View {
         VStack(spacing: 16) {
             ProgressView()
                 .progressViewStyle(.circular)
-                .tint(.ctGold)
+                .tint(.ctTextPrimary)
                 .scaleEffect(1.4)
             Text("Loading cards…")
                 .font(.ctBody)
@@ -102,7 +106,7 @@ struct CardListView: View {
         VStack(spacing: 20) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 40))
-                .foregroundColor(.ctGold)
+                .foregroundColor(.ctTextSecondary)
             Text("Couldn't load cards")
                 .font(.ctHeadline)
                 .foregroundColor(.ctTextPrimary)
@@ -113,39 +117,47 @@ struct CardListView: View {
                 .padding(.horizontal, 40)
             Button("Try again") { vm.reload() }
                 .font(.ctButtonLabel)
-                .foregroundColor(.ctGold)
+                .foregroundColor(.ctTextPrimary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
 // MARK: - Pressable card wrapper
+// NavigationLink(value:) provides the navigation push; CardPressStyle drives
+// the gradient press animation on the underlying CreditCardView.
 
 private struct PressableCard: View {
-    let card:  CardModel
-    let onTap: () -> Void
-
-    @GestureState private var isPressed = false
+    let dto: UserCardDTO
+    @State private var isPressed = false
 
     var body: some View {
-        CreditCardView(card: card, isPressed: isPressed)
-            .frame(width: cardWidth, height: cardHeight)
-            .frame(maxWidth: .infinity)
-            .scaleEffect(isPressed ? 0.985 : 1.0)
+        NavigationLink(value: dto) {
+            CreditCardView(card: dto.toCardModel(), isPressed: isPressed)
+                .frame(width: cardWidth, height: cardHeight)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(CardPressStyle(isPressed: $isPressed))
+    }
+}
+
+// ButtonStyle yields to the ScrollView on vertical drags — DragGesture(minimumDistance: 0)
+// blocks scrolling because it wins the gesture arena before the scroll view can claim it.
+private struct CardPressStyle: ButtonStyle {
+    @Binding var isPressed: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.985 : 1.0)
             .animation(
-                isPressed
+                configuration.isPressed
                     ? .easeIn(duration: 0.08)
                     : .spring(response: 0.50, dampingFraction: 0.60),
-                value: isPressed
+                value: configuration.isPressed
             )
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .updating($isPressed) { _, state, _ in state = true }
-                    .onEnded { val in
-                        let d = val.translation
-                        if abs(d.width) < 10 && abs(d.height) < 10 { onTap() }
-                    }
-            )
+            .onChange(of: configuration.isPressed) { _, pressed in
+                isPressed = pressed
+            }
     }
 }
 

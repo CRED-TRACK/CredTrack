@@ -62,7 +62,10 @@ private struct CardsTab: View {
     @Binding var selectedTab: Int
 
     var body: some View {
-        CardListView(selectedTab: $selectedTab)
+        NavigationStack {
+            CardListView(selectedTab: $selectedTab)
+        }
+        .tint(.ctTextPrimary)
     }
 }
 

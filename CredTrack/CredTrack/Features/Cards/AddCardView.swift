@@ -177,12 +177,7 @@ private struct PickerScreen: View {
     private var navBar: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Back button — absolute top-left corner
-            SynthIconButton(
-                image: NeoPopIcons.arrowUIImage?.withTintColor(.white, renderingMode: .alwaysOriginal),
-                iconSize: 16,
-                action: vm.back
-            )
-            .frame(width: 44, height: 44)
+            CTBackButton(action: vm.back)
 
             Spacer().frame(height: 10)
 

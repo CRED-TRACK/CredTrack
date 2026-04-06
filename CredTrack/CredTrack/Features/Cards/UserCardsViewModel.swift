@@ -7,7 +7,7 @@ final class UserCardsViewModel: ObservableObject {
     enum State {
         case idle
         case loading
-        case loaded([CardModel])
+        case loaded([UserCardDTO])
         case failed(String)
     }
 
@@ -17,9 +17,8 @@ final class UserCardsViewModel: ObservableObject {
         guard case .idle = state else { return }
         state = .loading
         do {
-            let dtos   = try await APIClient.shared.fetchUserCards()
-            let models = dtos.map { $0.toCardModel() }
-            state = .loaded(models)
+            let dtos = try await APIClient.shared.fetchUserCards()
+            state = .loaded(dtos)
         } catch {
             state = .failed(error.localizedDescription)
         }
