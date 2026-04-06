@@ -35,8 +35,16 @@ class NeuCardSurface: UIView {
     ) {
         layer.cornerRadius = cornerRadius
 
-        idleColors    = [baseColor.cgColor, gradientEnd.cgColor]
-        pressedColors = [gradientEnd.cgColor, baseColor.cgColor]
+        // Idle: natural card gradient (top-left lighter → bottom-right darker)
+        idleColors = [baseColor.cgColor, gradientEnd.cgColor]
+
+        // Pressed: Synth's exact elevatedSoft formula — dramatically darker top-left,
+        // slightly lighter bottom-right. This is the "sinking in" illusion that makes
+        // the CRED button feel physically depressed, not just scaled.
+        pressedColors = [
+            baseColor.darkened(by: 0.40).cgColor,   // top-left sinks into shadow
+            baseColor.lightened(by: 0.08).cgColor    // bottom-right catches the light
+        ]
 
         faceGradientLayer.colors     = idleColors
         faceGradientLayer.startPoint = CGPoint(x: 0, y: 0)
@@ -63,7 +71,12 @@ class NeuCardSurface: UIView {
     // Drive gradient swap from press state (call from updateUIView)
     func setPressed(_ pressed: Bool) {
         CATransaction.begin()
-        CATransaction.setAnimationDuration(pressed ? 0.10 : 0.40)
+        // Press: snap down fast (0.08s) — feels instant like a real button
+        // Release: ease back slowly (0.45s) — the "pop back up" feel
+        CATransaction.setAnimationDuration(pressed ? 0.08 : 0.45)
+        CATransaction.setAnimationTimingFunction(
+            CAMediaTimingFunction(name: pressed ? .easeIn : .easeOut)
+        )
         faceGradientLayer.colors = pressed ? pressedColors : idleColors
         CATransaction.commit()
     }

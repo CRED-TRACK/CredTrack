@@ -54,12 +54,12 @@ private struct PressableCard: View {
         CreditCardView(card: card, isPressed: isPressed)
             .frame(width: cardWidth, height: cardHeight)
             .frame(maxWidth: .infinity)
-            // SwiftUI-owned scale — never overridden by UIKit layout
-            .scaleEffect(isPressed ? 0.97 : 1.0)
+            // Subtle scale — gradient does the main work, scale adds physicality
+            .scaleEffect(isPressed ? 0.985 : 1.0)
             .animation(
                 isPressed
-                    ? .easeOut(duration: 0.10)
-                    : .spring(response: 0.45, dampingFraction: 0.55),
+                    ? .easeIn(duration: 0.08)                           // snap down
+                    : .spring(response: 0.50, dampingFraction: 0.60),  // bounce up
                 value: isPressed
             )
             .simultaneousGesture(
