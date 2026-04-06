@@ -73,6 +73,7 @@ final class CreditCardUIView: NeuCardSurface {
 
         issuerView.configure(assetName: card.issuerAsset,
                              fallbackText: card.bank,
+                             fallbackType: card.network.assetName,
                              tint: tc)
 
         networkView.configure(network: card.network)
@@ -91,45 +92,54 @@ final class CreditCardUIView: NeuCardSurface {
 
 private final class IssuerLogoView: UIView {
 
-    private let imageView = UIImageView()
-    private let label     = UILabel()
+    private let imageView  = UIImageView()
+    private let nameLabel  = UILabel()
+    private let typeLabel  = UILabel()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         imageView.contentMode   = .scaleAspectFit
         imageView.clipsToBounds = true
         addSubview(imageView)
-        label.font  = .gilroy(.semiBold, size: 10)
-        label.alpha = 0.70
-        addSubview(label)
+
+        nameLabel.font          = .gilroy(.semiBold, size: 12)
+        nameLabel.numberOfLines = 2
+        addSubview(nameLabel)
+
+        typeLabel.font  = .gilroy(.regular, size: 10)
+        typeLabel.alpha = 0.65
+        addSubview(typeLabel)
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(assetName: String?, fallbackText: String, tint: UIColor) {
+    func configure(assetName: String?, fallbackText: String, fallbackType: String, tint: UIColor) {
         if let name = assetName, let img = UIImage(named: name) {
-            // Cap to 38% height × 55% width — logo is prominent but never dominates
-            let maxH = bounds.height * 0.38
-            let maxW = bounds.width  * 0.55
-            // Scale proportionally to fit inside both caps
-            let scaleH = maxH / img.size.height
-            let scaleW = maxW / img.size.width
-            let scale  = min(scaleH, scaleW)
+            let maxH   = bounds.height * 0.38
+            let maxW   = bounds.width  * 0.55
+            let scale  = min(maxH / img.size.height, maxW / img.size.width)
             let w = img.size.width  * scale
             let h = img.size.height * scale
-            // Always centred — both axes
             imageView.frame    = CGRect(x: (bounds.width  - w) / 2,
                                         y: (bounds.height - h) / 2,
                                         width: w, height: h)
             imageView.image    = img
             imageView.isHidden = false
-            label.isHidden     = true
+            nameLabel.isHidden = true
+            typeLabel.isHidden = true
         } else {
-            label.frame        = bounds
-            label.text         = fallbackText.uppercased()
-            label.textColor    = tint
-            label.isHidden     = false
-            imageView.isHidden = true
+            // Top-left: bank name, then type below it
+            nameLabel.frame     = CGRect(x: 22, y: 42, width: 200, height: 32)
+            nameLabel.text      = fallbackText.uppercased()
+            nameLabel.textColor = tint
+
+            typeLabel.frame     = CGRect(x: 22, y: 76, width: 200, height: 14)
+            typeLabel.text      = fallbackType
+            typeLabel.textColor = tint
+
+            nameLabel.isHidden  = false
+            typeLabel.isHidden  = fallbackType.isEmpty
+            imageView.isHidden  = true
         }
     }
 }

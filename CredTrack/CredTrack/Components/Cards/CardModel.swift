@@ -13,7 +13,7 @@ enum CardNetwork: String {
         let upper = brand.uppercased()
         if upper.contains("VISA")             { return .visa }
         if upper.contains("MASTERCARD")       { return .mastercard }
-        if upper.contains("AMERICAN EXPRESS") { return .amex }
+        if upper.contains("AMERICAN EXPRESS") || upper == "AMEX" { return .amex }
         if upper.contains("DISCOVER")         { return .discover }
         return .unknown
     }
