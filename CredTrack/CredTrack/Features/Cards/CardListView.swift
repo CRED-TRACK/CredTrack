@@ -3,7 +3,7 @@ import Synth
 
 struct CardListView: View {
     @Binding var selectedTab: Int
-    @StateObject private var vm = CardProductsViewModel()
+    @StateObject private var vm = UserCardsViewModel()
 
     var body: some View {
         Group {
@@ -11,7 +11,7 @@ struct CardListView: View {
             case .idle, .loading:
                 loadingView
             case .loaded(let cards):
-                cardScroll(cards: cards)
+                cards.isEmpty ? AnyView(emptyView) : AnyView(cardScroll(cards: cards))
             case .failed(let msg):
                 errorView(message: msg)
             }
@@ -25,31 +25,55 @@ struct CardListView: View {
     private func cardScroll(cards: [CardModel]) -> some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
-
-                // Header
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("My Cards")
-                            .font(.ctDisplay)
-                            .foregroundColor(.ctTextPrimary)
-                        Text("\(cards.count) \(cards.count == 1 ? "card" : "cards")")
-                            .font(.ctCaption)
-                            .foregroundColor(.ctTextSecondary)
-                    }
-                    Spacer()
-                    AddNewButton()
-                        .frame(width: 130, height: 44)
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 24)
-
-                // Cards
+                header(count: cards.count)
                 ForEach(cards) { card in
                     PressableCard(card: card) { selectedTab = 3 }
                 }
             }
             .padding(.bottom, 48)
         }
+    }
+
+    // MARK: - Empty state
+
+    private var emptyView: some View {
+        VStack(spacing: 0) {
+            header(count: 0)
+            Spacer()
+            VStack(spacing: 12) {
+                Image(systemName: "creditcard")
+                    .font(.system(size: 44, weight: .light))
+                    .foregroundColor(.ctTextSecondary)
+                Text("No cards yet")
+                    .font(.ctHeadline)
+                    .foregroundColor(.ctTextPrimary)
+                Text("Tap \"Add new\" to add your first card.")
+                    .font(.ctBody)
+                    .foregroundColor(.ctTextSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            Spacer()
+        }
+    }
+
+    // MARK: - Shared header
+
+    private func header(count: Int) -> some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("My Cards")
+                    .font(.ctDisplay)
+                    .foregroundColor(.ctTextPrimary)
+                Text(count == 0 ? "No cards added" : "\(count) \(count == 1 ? "card" : "cards")")
+                    .font(.ctCaption)
+                    .foregroundColor(.ctTextSecondary)
+            }
+            Spacer()
+            AddNewButton()
+                .frame(width: 130, height: 44)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
     }
 
     // MARK: - Loading

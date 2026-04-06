@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import FirebaseAuth
 
 // MARK: - Response models
 
@@ -7,6 +8,40 @@ struct LoginResponse: Decodable {
     let id:    String
     let email: String
     let name:  String?
+}
+
+struct UserCardDTO: Decodable {
+    let id:             Int
+    // Card product info (embedded so no second request needed)
+    let productName:    String
+    let issuerName:     String
+    let bankKey:        String?
+    let brand:          String
+    let faceColor:      String
+    let gradientEnd:    String
+    let textColor:      String
+    // Card identity
+    let nickname:       String?
+    let lastFour:       String?
+    let cardHolderName: String?
+    // Financials
+    let creditLimit:    Double?
+    let currentBalance: Double?
+    // Meta
+    let isActive:       Bool
+
+    func toCardModel() -> CardModel {
+        CardModel(
+            cardName:    nickname ?? productName,
+            bank:        issuerName,
+            lastFour:    lastFour ?? "••••",
+            brandString: brand,
+            bankKey:     bankKey,
+            faceColor:   UIColor(hex: faceColor)   ?? .darkGray,
+            gradientEnd: UIColor(hex: gradientEnd) ?? .black,
+            textColor:   UIColor(hex: textColor)   ?? .white
+        )
+    }
 }
 
 struct CardProductDTO: Decodable {
@@ -75,7 +110,27 @@ final class APIClient {
         return try decoder.decode([CardProductDTO].self, from: data)
     }
 
-    // MARK: - Private HTTP helper
+    // MARK: User Cards
+
+    func fetchUserCards(includeInactive: Bool = false) async throws -> [UserCardDTO] {
+        let token = try await currentToken()
+        let path  = includeInactive ? "/user-cards?include_inactive=true" : "/user-cards"
+        let data  = try await get(path, bearerToken: token)
+        return try decoder.decode([UserCardDTO].self, from: data)
+    }
+
+    // MARK: - Private helpers
+
+    /// Returns the current Firebase ID token, refreshing it if needed.
+    private func currentToken() async throws -> String {
+        guard let user = Auth.auth().currentUser else { throw APIError.unauthorized }
+        return try await withCheckedThrowingContinuation { cont in
+            user.getIDToken { token, error in
+                if let token { cont.resume(returning: token) }
+                else         { cont.resume(throwing: error ?? APIError.unauthorized) }
+            }
+        }
+    }
 
     private func get(_ path: String, bearerToken: String? = nil) async throws -> Data {
         guard let url = URL(string: "\(APIConfig.baseURL)\(path)") else {

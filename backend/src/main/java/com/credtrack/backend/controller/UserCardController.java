@@ -2,6 +2,7 @@ package com.credtrack.backend.controller;
 
 import com.credtrack.backend.dto.UserCardRequest;
 import com.credtrack.backend.dto.UserCardResponse;
+import com.credtrack.backend.service.FirebaseService;
 import com.credtrack.backend.service.UserCardService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,74 +14,79 @@ import java.util.List;
 @RequestMapping("/user-cards")
 public class UserCardController {
 
-    private final UserCardService service;
+    private final UserCardService  service;
+    private final FirebaseService  firebaseService;
 
-    public UserCardController(UserCardService service) {
-        this.service = service;
+    public UserCardController(UserCardService service, FirebaseService firebaseService) {
+        this.service         = service;
+        this.firebaseService = firebaseService;
+    }
+
+    // Verifies the Bearer token and returns the Firebase UID.
+    private String resolveUid(String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        return firebaseService.verifyToken(token).getUid();
     }
 
     /**
-     * GET /user-cards?userId={uid}
-     * GET /user-cards?userId={uid}&includeInactive=true
-     *
-     * Returns all active cards for the user (newest first).
-     * Pass includeInactive=true to also see closed/removed cards.
+     * GET /user-cards
+     * GET /user-cards?includeInactive=true
      */
     @GetMapping
     public ResponseEntity<List<UserCardResponse>> list(
-            @RequestParam String userId,
+            @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(service.getCardsForUser(userId, includeInactive));
+        String uid = resolveUid(authHeader);
+        return ResponseEntity.ok(service.getCardsForUser(uid, includeInactive));
     }
 
     /**
-     * GET /user-cards/{id}?userId={uid}
-     *
-     * Returns a single user card. userId is verified to prevent cross-user access.
+     * GET /user-cards/{id}
      */
     @GetMapping("/{id}")
     public ResponseEntity<UserCardResponse> get(
-            @PathVariable Long id,
-            @RequestParam String userId) {
-        return ResponseEntity.ok(service.getCard(id, userId));
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id) {
+        String uid = resolveUid(authHeader);
+        return ResponseEntity.ok(service.getCard(id, uid));
     }
 
     /**
      * POST /user-cards
-     *
-     * Body: { userId, cardProductId, lastFour, ... }
-     * Adds a card to the user's wallet.
+     * Body: { cardProductId, lastFour, cardHolderName, creditLimit, ... }
+     * userId is taken from the verified token — not from the client.
      */
     @PostMapping
-    public ResponseEntity<UserCardResponse> add(@RequestBody UserCardRequest req) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.addCard(req));
+    public ResponseEntity<UserCardResponse> add(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody UserCardRequest req) {
+        String uid = resolveUid(authHeader);
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.addCard(uid, req));
     }
 
     /**
-     * PATCH /user-cards/{id}?userId={uid}
-     *
+     * PATCH /user-cards/{id}
      * Partial update — only fields present in the body are changed.
-     * Use this to update balances, statement dates, autopay, etc.
      */
     @PatchMapping("/{id}")
     public ResponseEntity<UserCardResponse> update(
+            @RequestHeader("Authorization") String authHeader,
             @PathVariable Long id,
-            @RequestParam String userId,
             @RequestBody UserCardRequest req) {
-        return ResponseEntity.ok(service.updateCard(id, userId, req));
+        String uid = resolveUid(authHeader);
+        return ResponseEntity.ok(service.updateCard(id, uid, req));
     }
 
     /**
-     * DELETE /user-cards/{id}?userId={uid}
-     *
+     * DELETE /user-cards/{id}
      * Soft-deletes the card (sets is_active = false).
-     * The card remains in the DB for history.
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> remove(
-            @PathVariable Long id,
-            @RequestParam String userId) {
-        service.removeCard(id, userId);
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id) {
+        String uid = resolveUid(authHeader);
+        service.removeCard(id, uid);
         return ResponseEntity.noContent().build();
     }
 }

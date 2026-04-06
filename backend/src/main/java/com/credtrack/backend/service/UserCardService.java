@@ -44,8 +44,8 @@ public class UserCardService {
     }
 
     @Transactional
-    public UserCardResponse addCard(UserCardRequest req) {
-        User user = userRepo.findById(req.getUserId())
+    public UserCardResponse addCard(String userId, UserCardRequest req) {
+        User user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         CardProduct product = cardProductRepo.findById(req.getCardProductId())
@@ -53,7 +53,7 @@ public class UserCardService {
 
         if (req.getLastFour() != null
                 && userCardRepo.existsByUser_IdAndCardProduct_IdAndLastFour(
-                        req.getUserId(), req.getCardProductId(), req.getLastFour())) {
+                        userId, req.getCardProductId(), req.getLastFour())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Card already added");
         }
 

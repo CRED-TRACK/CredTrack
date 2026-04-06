@@ -10,9 +10,8 @@ import java.time.LocalDate;
 @Getter @Setter @NoArgsConstructor
 public class UserCardRequest {
 
-    // Required on POST
-    private String userId;
-    private Long   cardProductId;
+    // userId is resolved server-side from the Bearer token — never sent by the client
+    private Long cardProductId;
 
     // Card identity
     private String nickname;
