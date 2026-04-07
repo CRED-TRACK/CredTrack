@@ -50,6 +50,16 @@ struct BINResponse: Decodable {
     let bankKey:    String?
 }
 
+struct GmailStatusResponse: Decodable {
+    let connected:    Bool
+    let gmailAddress: String?
+    let lastSyncedAt: String?
+}
+
+private struct GmailAuthURLResponse: Decodable {
+    let authUrl: String
+}
+
 struct AddCardRequest: Encodable {
     let cardProductId:  Int
     let cardHolderName: String
@@ -157,6 +167,20 @@ final class APIClient {
         let body  = try encoder.encode(req)
         let data  = try await post("/user-cards", body: body, bearerToken: token)
         return try decoder.decode(UserCardDTO.self, from: data)
+    }
+
+    // MARK: Gmail
+
+    func fetchGmailStatus() async throws -> GmailStatusResponse {
+        let token = try await currentToken()
+        let data  = try await get("/gmail/status", bearerToken: token)
+        return try decoder.decode(GmailStatusResponse.self, from: data)
+    }
+
+    func fetchGmailAuthURL() async throws -> String {
+        let token = try await currentToken()
+        let data  = try await get("/gmail/oauth/authorize", bearerToken: token)
+        return try decoder.decode(GmailAuthURLResponse.self, from: data).authUrl
     }
 
     // MARK: - Private helpers

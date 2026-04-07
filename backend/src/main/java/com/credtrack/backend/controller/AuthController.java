@@ -20,7 +20,7 @@ public class AuthController {
         this.userService = userService;
     }
 
-    @PostMapping("/login")
+    @GetMapping("/login")
     public User login(@RequestHeader("Authorization") String authHeader) {
 
         String token = authHeader.replace("Bearer ", "");

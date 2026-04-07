@@ -3,6 +3,7 @@ import SwiftUI
 struct MainTabView: View {
     @EnvironmentObject var appState: AppStateManager
     @State private var selectedTab = 0
+    @StateObject private var gmailManager = GmailConnectionManager()
 
     init() {
         let appearance = UITabBarAppearance()
@@ -53,6 +54,8 @@ struct MainTabView: View {
                 }
                 .tag(3)
         }
+        .environmentObject(gmailManager)
+        .task { await gmailManager.checkStatus() }
     }
 }
 

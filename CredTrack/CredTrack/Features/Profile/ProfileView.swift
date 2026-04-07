@@ -4,6 +4,7 @@ import Synth
 
 struct ProfileView: View {
     @EnvironmentObject var appState: AppStateManager
+    @EnvironmentObject var gmailManager: GmailConnectionManager
     @StateObject private var vm = ProfileViewModel()
 
     var body: some View {
@@ -14,6 +15,8 @@ struct ProfileView: View {
                 statsSection
                 Spacer().frame(height: 36)
                 accountSection
+                Spacer().frame(height: 36)
+                integrationsSection
                 Spacer().frame(height: 40)
                 signOutButton
                 Spacer().frame(height: 56)
@@ -134,6 +137,29 @@ struct ProfileView: View {
         .padding(.horizontal, 20)
     }
 
+    // MARK: - Integrations
+
+    private var integrationsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHeader("INTEGRATIONS")
+            VStack(spacing: 0) {
+                GmailIntegrationRow(manager: gmailManager)
+            }
+            .background(Color.ctSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(Color.NeoPop.Black.c200, lineWidth: 1)
+            )
+        }
+        .padding(.horizontal, 20)
+        .alert("Gmail Connection", isPresented: .constant(gmailManager.connectError != nil)) {
+            Button("OK") { gmailManager.connectError = nil }
+        } message: {
+            Text(gmailManager.connectError ?? "")
+        }
+    }
+
     // MARK: - Sign out
 
     private var signOutButton: some View {
@@ -209,6 +235,77 @@ private struct ProfileRow: View {
         }
         .buttonStyle(.plain)
         .disabled(action == nil)
+    }
+}
+
+// MARK: - Gmail Integration Row
+
+private struct GmailIntegrationRow: View {
+    @ObservedObject var manager: GmailConnectionManager
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "envelope.circle.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(manager.isConnected ? Color.green : .ctGold)
+                .frame(width: 34, height: 34)
+                .background(
+                    Circle().fill(
+                        manager.isConnected
+                            ? Color.green.opacity(0.12)
+                            : Color.ctGold.opacity(0.12)
+                    )
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Gmail")
+                    .font(.ctMicro)
+                    .foregroundColor(.ctTextSecondary)
+                Text(manager.isConnected
+                     ? (manager.gmailAddress ?? "Connected")
+                     : "Not connected")
+                    .font(.ctBody)
+                    .foregroundColor(manager.isConnected ? .ctTextPrimary : .ctTextSecondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            if manager.isConnected {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 13))
+                        .foregroundColor(.green)
+                    Text("Connected")
+                        .font(.ctMicro)
+                        .foregroundColor(.green)
+                }
+            } else {
+                Button {
+                    manager.startOAuth()
+                } label: {
+                    if manager.isConnecting {
+                        ProgressView()
+                            .tint(.ctGold)
+                            .scaleEffect(0.8)
+                    } else {
+                        Text("Connect")
+                            .font(.ctMicro)
+                            .foregroundColor(.ctGold)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .fill(Color.ctGold.opacity(0.10))
+                                    .overlay(Capsule().strokeBorder(Color.ctGold.opacity(0.40), lineWidth: 1))
+                            )
+                    }
+                }
+                .disabled(manager.isConnecting)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
     }
 }
 

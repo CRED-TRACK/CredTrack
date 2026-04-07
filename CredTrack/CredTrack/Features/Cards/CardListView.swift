@@ -3,8 +3,10 @@ import Synth
 
 struct CardListView: View {
     @Binding var selectedTab: Int
+    @EnvironmentObject var gmailManager: GmailConnectionManager
     @StateObject private var vm = UserCardsViewModel()
     @State private var showAddCard = false
+    @State private var showGmailPopup = false
 
     var body: some View {
         Group {
@@ -23,6 +25,18 @@ struct CardListView: View {
             CardDetailView(card: card)
         }
         .task { await vm.load() }
+        .task(id: gmailManager.isConnected) {
+            if !gmailManager.isConnected && !gmailManager.isChecking {
+                try? await Task.sleep(for: .seconds(0.6))
+                showGmailPopup = true
+            }
+        }
+        .sheet(isPresented: $showGmailPopup) {
+            GmailConnectSheet(manager: gmailManager, isPresented: $showGmailPopup)
+                .presentationDetents([.height(280)])
+                .presentationBackground(Color.ctSurface)
+                .presentationDragIndicator(.visible)
+        }
         .sheet(isPresented: $showAddCard) {
             AddCardView { vm.reload() }
                 .presentationBackground(Color.ctSurface)
@@ -35,6 +49,10 @@ struct CardListView: View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
                 header(count: cards.count)
+                if !gmailManager.isConnected {
+                    GmailConnectBanner(manager: gmailManager)
+                        .padding(.horizontal, 24)
+                }
                 ForEach(cards, id: \.id) { dto in
                     PressableCard(dto: dto)
                 }
@@ -158,6 +176,122 @@ private struct CardPressStyle: ButtonStyle {
             .onChange(of: configuration.isPressed) { _, pressed in
                 isPressed = pressed
             }
+    }
+}
+
+// MARK: - Gmail Connect Banner (inline, persistent)
+
+private struct GmailConnectBanner: View {
+    @ObservedObject var manager: GmailConnectionManager
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "envelope.badge.fill")
+                .font(.system(size: 18))
+                .foregroundColor(.ctGold)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Connect Gmail")
+                    .font(.ctBody)
+                    .foregroundColor(.ctTextPrimary)
+                Text("Auto-import your bank transactions")
+                    .font(.ctCaption)
+                    .foregroundColor(.ctTextSecondary)
+            }
+
+            Spacer()
+
+            Button {
+                manager.startOAuth()
+            } label: {
+                if manager.isConnecting {
+                    ProgressView().tint(.ctGold).scaleEffect(0.8)
+                } else {
+                    Text("Connect")
+                        .font(.ctMicro)
+                        .foregroundColor(.ctGold)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.ctGold.opacity(0.10))
+                                .overlay(Capsule().strokeBorder(Color.ctGold.opacity(0.40), lineWidth: 1))
+                        )
+                }
+            }
+            .disabled(manager.isConnecting)
+        }
+        .padding(14)
+        .background(Color.ctSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(Color.ctGold.opacity(0.20), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Gmail Connect Sheet (popup shown once per session)
+
+private struct GmailConnectSheet: View {
+    @ObservedObject var manager: GmailConnectionManager
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer().frame(height: 28)
+
+            Image(systemName: "envelope.circle.fill")
+                .font(.system(size: 48))
+                .foregroundColor(.ctGold)
+
+            Spacer().frame(height: 16)
+
+            Text("Connect Gmail")
+                .font(.ctHeadline)
+                .foregroundColor(.ctTextPrimary)
+
+            Spacer().frame(height: 8)
+
+            Text("We need access to your Gmail inbox to automatically detect and import your credit card transactions from bank notification emails.")
+                .font(.ctBody)
+                .foregroundColor(.ctTextSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+
+            Spacer().frame(height: 28)
+
+            HStack(spacing: 12) {
+                Button("Not Now") {
+                    isPresented = false
+                }
+                .font(.ctButtonLabel)
+                .foregroundColor(.ctTextSecondary)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .background(Color.NeoPop.Black.c200)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                Button {
+                    isPresented = false
+                    manager.startOAuth()
+                } label: {
+                    if manager.isConnecting {
+                        ProgressView().tint(.white)
+                    } else {
+                        Text("Connect Gmail")
+                            .font(.ctButtonLabel)
+                            .foregroundColor(.black)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .background(Color.ctGold)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .disabled(manager.isConnecting)
+            }
+            .padding(.horizontal, 24)
+
+            Spacer().frame(height: 16)
+        }
     }
 }
 
