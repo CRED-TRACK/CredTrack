@@ -80,11 +80,11 @@ final class WebAuthContextProvider: NSObject, ASWebAuthenticationPresentationCon
     nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         // presentationAnchor is always called on the main thread by ASWebAuthenticationSession
         MainActor.assumeIsolated {
-            guard let scene = UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .first(where: { $0.activationState == .foregroundActive }) else {
-                return UIWindow()
-            }
+            // Prefer foreground-active scene; fall back to any connected scene.
+            // Force-unwrap is safe: this method is only called while the app is
+            // actively presenting an ASWebAuthenticationSession, so a scene always exists.
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            let scene = (scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first)!
             return scene.windows.first(where: { $0.isKeyWindow })
                 ?? scene.windows.first
                 ?? UIWindow(windowScene: scene)

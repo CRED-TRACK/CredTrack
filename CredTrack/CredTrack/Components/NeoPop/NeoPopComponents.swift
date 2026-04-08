@@ -242,6 +242,7 @@ struct NeoPopInputField: UIViewRepresentable {
     var autocapitalization: UITextAutocapitalizationType   = .sentences
     var font:               UIFont                         = .gilroy(.medium, size: 16)
     var prefix:             String?                        = nil
+    var leadingImage:       UIImage?                       = nil
     var borderColor:        UIColor                        = .white
     var onCommit:           (() -> Void)?                  = nil
 
@@ -295,6 +296,16 @@ struct NeoPopInputField: UIViewRepresentable {
         tf.addTarget(context.coordinator,
                      action: #selector(Coordinator.changed(_:)),
                      for: .editingChanged)
+
+        // Trailing network logo — flush with the right edge of the text field
+        let rightContainer = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 28))
+        let iv = UIImageView(frame: CGRect(x: 4, y: 4, width: 40, height: 20))
+        iv.contentMode = .scaleAspectFit
+        iv.image = leadingImage
+        rightContainer.addSubview(iv)
+        tf.rightView = rightContainer
+        tf.rightViewMode = leadingImage != nil ? .always : .never
+
         tf.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(tf)
         NSLayoutConstraint.activate([
@@ -307,11 +318,19 @@ struct NeoPopInputField: UIViewRepresentable {
     }
 
     func updateUIView(_ container: UIView, context: Context) {
+        guard let tf = container.subviews.compactMap({ $0 as? UITextField }).first else { return }
+
         // Sync text field value
-        if let tf = container.subviews.compactMap({ $0 as? UITextField }).first,
-           tf.text != text {
-            tf.text = text
+        if tf.text != text { tf.text = text }
+
+        // Update trailing network logo with a crossfade
+        if let iv = tf.rightView?.subviews.compactMap({ $0 as? UIImageView }).first {
+            UIView.transition(with: iv, duration: 0.15, options: .transitionCrossDissolve, animations: {
+                iv.image = self.leadingImage
+            })
+            tf.rightViewMode = leadingImage != nil ? .always : .never
         }
+
         // Re-apply NeoPop border whenever borderColor changes
         container.applyNeoPopStyle(model: PopView.Model(
             popEdgeDirection:    .bottomRight,

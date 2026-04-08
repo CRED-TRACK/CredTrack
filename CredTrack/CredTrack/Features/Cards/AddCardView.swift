@@ -86,16 +86,17 @@ private struct EntryScreen: View {
                 .padding(.horizontal, 20)
 
             NeoPopInputField(
-                placeholder: "XXXX  XXXX  XXXX  XXXX",
+                placeholder: vm.cardNumberPlaceholder,
                 text: Binding(
                     get: { vm.formattedNumber },
-                    set: { vm.rawNumber = String($0.filter(\.isNumber).prefix(16)) }
+                    set: { vm.rawNumber = String($0.filter(\.isNumber).prefix(vm.maxDigits)) }
                 ),
                 keyboardType: .numberPad,
                 font: .gilroy(.semiBold, size: 18),
+                leadingImage: vm.networkLogoImage,
                 borderColor: vm.isCardNumberValid
                     ? UIColor.NeoPop.State.success300
-                    : vm.rawNumber.filter(\.isNumber).count == 16
+                    : vm.rawNumber.filter(\.isNumber).count == vm.maxDigits
                         ? UIColor.NeoPop.State.error300
                         : .white
             )

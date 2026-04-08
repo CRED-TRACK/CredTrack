@@ -28,14 +28,55 @@ final class AddCardViewModel: ObservableObject {
 
     // MARK: - Computed
 
+    /// Detects card network from BIN prefix as the user types.
+    /// Visa: 4x, Amex: 34/37, Mastercard: 51-55 / 2221-2720, Discover: 6011/65/644-649
+    var detectedNetwork: CardNetwork {
+        let d = rawNumber.filter(\.isNumber)
+        guard !d.isEmpty else { return .unknown }
+
+        if d.hasPrefix("4") { return .visa }
+        if d.hasPrefix("34") || d.hasPrefix("37") { return .amex }
+
+        if d.count >= 2, let p2 = Int(String(d.prefix(2))), (51...55).contains(p2) { return .mastercard }
+        if d.count >= 4, let p4 = Int(String(d.prefix(4))), (2221...2720).contains(p4) { return .mastercard }
+
+        if d.hasPrefix("6011") || d.hasPrefix("65") { return .discover }
+        if d.count >= 3, let p3 = Int(String(d.prefix(3))), (644...649).contains(p3) { return .discover }
+
+        return .unknown
+    }
+
+    /// Network logo image for the card number field.
+    /// Amex uses "amex-brand" asset; all other networks use their standard asset name.
+    var networkLogoImage: UIImage? {
+        guard detectedNetwork != .unknown else { return nil }
+        let assetName = detectedNetwork == .amex ? "amex-brand" : detectedNetwork.assetName
+        return UIImage(named: assetName)
+    }
+
+    /// Amex cards start with 34 or 37 and have 15 digits; all others are 16.
+    var isAmex: Bool { detectedNetwork == .amex }
+
+    var maxDigits: Int { isAmex ? 15 : 16 }
+
+    /// Amex format: XXXX  XXXXXX  XXXXX (4-6-5)
+    /// Standard format: XXXX  XXXX  XXXX  XXXX (4-4-4-4)
     var formattedNumber: String {
-        let digits = rawNumber.filter(\.isNumber).prefix(16)
+        let digits = rawNumber.filter(\.isNumber).prefix(maxDigits)
         var out = ""
         for (i, ch) in digits.enumerated() {
-            if i > 0 && i % 4 == 0 { out += "  " }
+            if isAmex {
+                if i == 4 || i == 10 { out += "  " }
+            } else {
+                if i > 0 && i % 4 == 0 { out += "  " }
+            }
             out.append(ch)
         }
         return out
+    }
+
+    var cardNumberPlaceholder: String {
+        isAmex ? "XXXX  XXXXXX  XXXXX" : "XXXX  XXXX  XXXX  XXXX"
     }
 
     var lastFour: String {
@@ -44,14 +85,14 @@ final class AddCardViewModel: ObservableObject {
 
     // MARK: - Validation
 
-    /// Luhn algorithm — returns true when the 16-digit card number is structurally valid.
+    /// Luhn algorithm — works for both 15-digit Amex and 16-digit standard cards.
     var isCardNumberValid: Bool {
         let digits = rawNumber.filter(\.isNumber)
-        guard digits.count == 16 else { return false }
+        guard digits.count == maxDigits else { return false }
         var sum = 0
         for (i, ch) in digits.reversed().enumerated() {
             guard var d = ch.wholeNumberValue else { return false }
-            if i % 2 == 1 {        // every second digit from the right (0-indexed)
+            if i % 2 == 1 {
                 d *= 2
                 if d > 9 { d -= 9 }
             }
