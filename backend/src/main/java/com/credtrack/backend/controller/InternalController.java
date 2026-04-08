@@ -1,16 +1,21 @@
 package com.credtrack.backend.controller;
 
+import com.credtrack.backend.dto.CardStatementResponse;
 import com.credtrack.backend.dto.GmailCredentialRequest;
+import com.credtrack.backend.dto.StatementCreateRequest;
 import com.credtrack.backend.dto.TransactionCreateRequest;
 import com.credtrack.backend.dto.TransactionResponse;
 import com.credtrack.backend.dto.UserCardResponse;
 import com.credtrack.backend.entity.GmailCredential;
+import com.credtrack.backend.repository.GmailCredentialRepository;
+import com.credtrack.backend.service.StatementInternalService;
 import com.credtrack.backend.service.TransactionInternalService;
 import com.credtrack.backend.service.UserCardService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,12 +29,54 @@ import java.util.Map;
 public class InternalController {
 
     private final TransactionInternalService internalService;
+    private final StatementInternalService   statementService;
     private final UserCardService            userCardService;
+    private final GmailCredentialRepository  gmailCredentialRepo;
 
     public InternalController(TransactionInternalService internalService,
-                              UserCardService userCardService) {
-        this.internalService = internalService;
-        this.userCardService = userCardService;
+                              StatementInternalService statementService,
+                              UserCardService userCardService,
+                              GmailCredentialRepository gmailCredentialRepo) {
+        this.internalService     = internalService;
+        this.statementService    = statementService;
+        this.userCardService     = userCardService;
+        this.gmailCredentialRepo = gmailCredentialRepo;
+    }
+
+    /**
+     * GET /internal/gmail-credentials
+     * AI agent calls this to get all users with Gmail connected for polling.
+     * Returns userId, accessToken, tokenExpiryUtc, gmailAddress, historyId.
+     */
+    @GetMapping("/gmail-credentials")
+    public ResponseEntity<List<Map<String, Object>>> getAllGmailCredentials() {
+        List<Map<String, Object>> result = gmailCredentialRepo.findAll().stream()
+                .filter(c -> c.getAccessToken() != null)
+                .map(c -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("userId",        c.getUser().getId());
+                    m.put("accessToken",   c.getAccessToken());
+                    m.put("tokenExpiryUtc", c.getTokenExpiryUtc() != null
+                            ? c.getTokenExpiryUtc().toString() : null);
+                    m.put("gmailAddress",  c.getGmailAddress());
+                    m.put("historyId",     c.getHistoryId() != null
+                            ? Long.parseLong(c.getHistoryId()) : null);
+                    return m;
+                })
+                .toList();
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * POST /internal/statements
+     * AI agent writes an extracted statement.
+     * Returns 201 on success, 409 if gmail_message_id already exists.
+     */
+    @PostMapping("/statements")
+    public ResponseEntity<CardStatementResponse> createStatement(
+            @RequestBody StatementCreateRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(statementService.create(req));
     }
 
     /**
