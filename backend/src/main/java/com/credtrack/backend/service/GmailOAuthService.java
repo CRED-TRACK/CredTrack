@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
 
@@ -98,6 +99,34 @@ public class GmailOAuthService {
         return new TokenResponse(accessToken, refreshToken, expiry);
     }
 
+    // ── Token refresh ─────────────────────────────────────────────────────────
+
+    @SuppressWarnings("unchecked")
+    public TokenResponse refreshAccessToken(String refreshToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("refresh_token", refreshToken);
+        params.add("client_id",     clientId);
+        params.add("client_secret", clientSecret);
+        params.add("grant_type",    "refresh_token");
+
+        ResponseEntity<Map> resp = restTemplate.postForEntity(
+                TOKEN_URL, new HttpEntity<>(params, headers), Map.class);
+
+        Map<String, Object> body = resp.getBody();
+        if (body == null || !body.containsKey("access_token")) {
+            throw new RuntimeException("Token refresh failed — no access_token in response");
+        }
+
+        String accessToken = (String) body.get("access_token");
+        int    expiresIn   = (int) body.getOrDefault("expires_in", 3600);
+        LocalDateTime expiry = LocalDateTime.now(ZoneOffset.UTC).plusSeconds(expiresIn);
+
+        return new TokenResponse(accessToken, refreshToken, expiry);
+    }
+
     // ── State signing & verification ──────────────────────────────────────────
 
     /** Returns {@code base64url(uid) + "." + base64url(hmac(uid))} */
@@ -146,9 +175,10 @@ public class GmailOAuthService {
     public String decrypt(String encryptedB64) {
         try {
             byte[]    combined = Base64.getDecoder().decode(encryptedB64);
-            byte[]    iv       = ByteBuffer.wrap(combined, 0, GCM_IV_LENGTH).array();
-            byte[]    ct       = ByteBuffer.wrap(combined, GCM_IV_LENGTH,
-                                       combined.length - GCM_IV_LENGTH).array();
+            // Use Arrays.copyOfRange — ByteBuffer.wrap().array() returns the full backing
+            // array regardless of offset/length, giving the wrong IV and corrupt ciphertext.
+            byte[]    iv       = Arrays.copyOfRange(combined, 0, GCM_IV_LENGTH);
+            byte[]    ct       = Arrays.copyOfRange(combined, GCM_IV_LENGTH, combined.length);
             byte[]    keyBytes = Base64.getDecoder().decode(encryptionKeyB64);
             SecretKey key      = new SecretKeySpec(keyBytes, "AES");
 

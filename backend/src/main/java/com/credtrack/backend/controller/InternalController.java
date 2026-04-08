@@ -9,14 +9,20 @@ import com.credtrack.backend.dto.UserCardResponse;
 import com.credtrack.backend.entity.GmailCredential;
 import com.credtrack.backend.repository.GmailCredentialRepository;
 import com.credtrack.backend.repository.UserCardRepository;
+import com.credtrack.backend.service.GmailOAuthService;
 import com.credtrack.backend.service.StatementInternalService;
 import com.credtrack.backend.service.TransactionInternalService;
 import com.credtrack.backend.service.UserCardService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,22 +36,27 @@ import java.util.Map;
 @RequestMapping("/internal")
 public class InternalController {
 
+    private static final Logger log = LoggerFactory.getLogger(InternalController.class);
+
     private final TransactionInternalService internalService;
     private final StatementInternalService   statementService;
     private final UserCardService            userCardService;
     private final GmailCredentialRepository  gmailCredentialRepo;
     private final UserCardRepository         userCardRepo;
+    private final GmailOAuthService          gmailOAuthService;
 
     public InternalController(TransactionInternalService internalService,
                               StatementInternalService statementService,
                               UserCardService userCardService,
                               GmailCredentialRepository gmailCredentialRepo,
-                              UserCardRepository userCardRepo) {
+                              UserCardRepository userCardRepo,
+                              GmailOAuthService gmailOAuthService) {
         this.internalService     = internalService;
         this.statementService    = statementService;
         this.userCardService     = userCardService;
         this.gmailCredentialRepo = gmailCredentialRepo;
         this.userCardRepo        = userCardRepo;
+        this.gmailOAuthService   = gmailOAuthService;
     }
 
     /**
@@ -149,5 +160,41 @@ public class InternalController {
         req.setUserId(userId);
         GmailCredential cred = internalService.upsertCredential(req);
         return ResponseEntity.ok(Map.of("id", cred.getId(), "userId", cred.getUser().getId()));
+    }
+
+    /**
+     * POST /internal/gmail-credentials/{userId}/refresh
+     * AI project calls this when the stored access token has expired.
+     * Backend decrypts the refresh token, calls Google, saves + returns the new access token.
+     */
+    @PostMapping("/gmail-credentials/{userId}/refresh")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> refreshToken(@PathVariable String userId) {
+        GmailCredential cred = gmailCredentialRepo.findByUser_Id(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "No Gmail credential for user " + userId));
+
+        if (cred.getEncryptedRefreshToken() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No refresh token stored");
+        }
+
+        try {
+            String refreshToken = gmailOAuthService.decrypt(cred.getEncryptedRefreshToken());
+            GmailOAuthService.TokenResponse tokens = gmailOAuthService.refreshAccessToken(refreshToken);
+
+            cred.setAccessToken(tokens.accessToken());
+            cred.setTokenExpiryUtc(tokens.expiryUtc());
+            gmailCredentialRepo.save(cred);
+
+            log.info("Access token refreshed for user {}, expires {}", userId, tokens.expiryUtc());
+            return ResponseEntity.ok(Map.of(
+                    "access_token",    tokens.accessToken(),
+                    "token_expiry_utc", tokens.expiryUtc().toString()
+            ));
+        } catch (Exception e) {
+            log.error("Token refresh failed for user {}: {}", userId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Token refresh failed: " + e.getMessage());
+        }
     }
 }
