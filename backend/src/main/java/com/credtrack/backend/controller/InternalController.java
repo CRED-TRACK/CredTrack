@@ -8,11 +8,13 @@ import com.credtrack.backend.dto.TransactionResponse;
 import com.credtrack.backend.dto.UserCardResponse;
 import com.credtrack.backend.entity.GmailCredential;
 import com.credtrack.backend.repository.GmailCredentialRepository;
+import com.credtrack.backend.repository.UserCardRepository;
 import com.credtrack.backend.service.StatementInternalService;
 import com.credtrack.backend.service.TransactionInternalService;
 import com.credtrack.backend.service.UserCardService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -32,35 +34,57 @@ public class InternalController {
     private final StatementInternalService   statementService;
     private final UserCardService            userCardService;
     private final GmailCredentialRepository  gmailCredentialRepo;
+    private final UserCardRepository         userCardRepo;
 
     public InternalController(TransactionInternalService internalService,
                               StatementInternalService statementService,
                               UserCardService userCardService,
-                              GmailCredentialRepository gmailCredentialRepo) {
+                              GmailCredentialRepository gmailCredentialRepo,
+                              UserCardRepository userCardRepo) {
         this.internalService     = internalService;
         this.statementService    = statementService;
         this.userCardService     = userCardService;
         this.gmailCredentialRepo = gmailCredentialRepo;
+        this.userCardRepo        = userCardRepo;
     }
 
     /**
      * GET /internal/gmail-credentials
-     * AI agent calls this to get all users with Gmail connected for polling.
-     * Returns userId, accessToken, tokenExpiryUtc, gmailAddress, historyId.
+     * AI agent calls this at the start of every poll cycle.
+     * Returns each connected user's OAuth tokens + their registered cards
+     * (lastFour + bankKey) so the agent never needs to call the LLM for
+     * bank/card identification — it already knows before reading the email.
      */
     @GetMapping("/gmail-credentials")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<Map<String, Object>>> getAllGmailCredentials() {
         List<Map<String, Object>> result = gmailCredentialRepo.findAll().stream()
                 .filter(c -> c.getAccessToken() != null)
                 .map(c -> {
+                    String userId = c.getUser().getId();
+
+                    // Registered active cards for this user
+                    List<Map<String, Object>> cards =
+                            userCardRepo.findByUser_IdAndIsActiveTrueOrderByAddedAtDesc(userId)
+                                    .stream()
+                                    .map(uc -> {
+                                        Map<String, Object> card = new HashMap<>();
+                                        card.put("cardId",   uc.getId());
+                                        card.put("lastFour", uc.getLastFour());
+                                        card.put("bankKey",  uc.getCardProduct().getBankKey());
+                                        return card;
+                                    })
+                                    .toList();
+
                     Map<String, Object> m = new HashMap<>();
-                    m.put("userId",        c.getUser().getId());
+                    m.put("userId",        userId);
                     m.put("accessToken",   c.getAccessToken());
                     m.put("tokenExpiryUtc", c.getTokenExpiryUtc() != null
                             ? c.getTokenExpiryUtc().toString() : null);
                     m.put("gmailAddress",  c.getGmailAddress());
                     m.put("historyId",     c.getHistoryId() != null
                             ? Long.parseLong(c.getHistoryId()) : null);
+                    m.put("cards",         cards);
                     return m;
                 })
                 .toList();
