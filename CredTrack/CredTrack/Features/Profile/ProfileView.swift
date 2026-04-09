@@ -271,29 +271,28 @@ private struct GmailIntegrationRow: View {
 
             Spacer()
 
-            if manager.isConnected {
-                HStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 13))
-                        .foregroundColor(.green)
-                    Text("Connected")
-                        .font(.ctMicro)
-                        .foregroundColor(.green)
-                }
-            } else {
-                Button {
-                    manager.startOAuth()
-                } label: {
-                    if manager.isConnecting {
-                        ProgressView()
-                            .tint(.ctGold)
-                            .scaleEffect(0.8)
-                    } else {
-                        Text("Connect")
+            if manager.isConnecting {
+                ProgressView()
+                    .tint(.ctGold)
+                    .scaleEffect(0.8)
+            } else if manager.isConnected {
+                HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 13))
+                            .foregroundColor(.green)
+                        Text("Connected")
+                            .font(.ctMicro)
+                            .foregroundColor(.green)
+                    }
+                    Button {
+                        manager.startOAuth()
+                    } label: {
+                        Text("Reconnect")
                             .font(.ctMicro)
                             .foregroundColor(.ctGold)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
                             .background(
                                 Capsule()
                                     .fill(Color.ctGold.opacity(0.10))
@@ -301,7 +300,21 @@ private struct GmailIntegrationRow: View {
                             )
                     }
                 }
-                .disabled(manager.isConnecting)
+            } else {
+                Button {
+                    manager.startOAuth()
+                } label: {
+                    Text("Connect")
+                        .font(.ctMicro)
+                        .foregroundColor(.ctGold)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.ctGold.opacity(0.10))
+                                .overlay(Capsule().strokeBorder(Color.ctGold.opacity(0.40), lineWidth: 1))
+                        )
+                }
             }
         }
         .padding(.horizontal, 16)
