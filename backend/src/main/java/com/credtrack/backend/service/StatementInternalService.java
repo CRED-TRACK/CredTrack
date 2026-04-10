@@ -45,8 +45,10 @@ public class StatementInternalService {
         UserCard userCard = null;
         if (req.getCardLastFour() != null) {
             userCard = userCardRepo.findByUser_IdOrderByAddedAtDesc(user.getId()).stream()
-                    .filter(uc -> req.getCardLastFour().equals(uc.getLastFour())
-                               && Boolean.TRUE.equals(uc.getIsActive()))
+                    .filter(uc -> Boolean.TRUE.equals(uc.getIsActive())
+                               && (req.getCardLastFour().equals(uc.getLastFour())
+                                   || uc.getLastFour().endsWith(req.getCardLastFour())
+                                   || req.getCardLastFour().endsWith(uc.getLastFour())))
                     .findFirst()
                     .orElse(null);
         }
