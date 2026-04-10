@@ -35,7 +35,7 @@ public class CardStatement {
     @Column(name = "gmail_message_id", nullable = false, length = 50)
     private String gmailMessageId;
 
-    @Column(name = "card_last_four", length = 4)
+    @Column(name = "card_last_four", length = 10)
     private String cardLastFour;
 
     @Column(name = "bank", length = 50)

@@ -33,7 +33,7 @@ public class UserCard {
 
     // ── Card identity ──────────────────────────────────────────────────────
     @Column(name = "nickname",          length = 100) private String  nickname;
-    @Column(name = "last_four",         length = 4)   private String  lastFour;
+    @Column(name = "last_four",         length = 10)  private String  lastFour;
     @Column(name = "card_holder_name",  length = 150) private String  cardHolderName;
 
     // ── Financials ─────────────────────────────────────────────────────────
@@ -51,6 +51,11 @@ public class UserCard {
     @Builder.Default
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
+
+    /** True once the AI agent has completed a full historical Gmail scan for this card. */
+    @Builder.Default
+    @Column(name = "gmail_scan_complete", nullable = false)
+    private Boolean gmailScanComplete = false;
 
     @Column(name = "added_at", nullable = false, updatable = false)
     private LocalDateTime addedAt;
