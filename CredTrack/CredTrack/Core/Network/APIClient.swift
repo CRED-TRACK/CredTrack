@@ -27,6 +27,12 @@ struct UserCardDTO: Decodable, Identifiable, Hashable {
     // Financials
     let creditLimit:    Double?
     let currentBalance: Double?
+    // Payment info
+    let statementBalance:  Double?
+    let minimumDue:        Double?
+    let paymentDueDate:    String?   // "YYYY-MM-DD"
+    let lastPaymentDate:   String?   // "YYYY-MM-DD"
+    let lastPaymentAmount: Double?
     // Meta
     let isActive:       Bool
 
@@ -90,6 +96,24 @@ struct CardProductDTO: Decodable {
             textColor:   UIColor(hex: textColor)   ?? .white
         )
     }
+}
+
+struct CardStatementDTO: Decodable, Identifiable {
+    let id:               Int
+    let userCardId:       Int?
+    let cardLastFour:     String?
+    let bank:             String?
+    let statementDate:    String?   // "YYYY-MM-DD"
+    let statementBalance: Double?
+    let minimumDue:       Double?
+    let dueDate:          String?   // "YYYY-MM-DD"
+    let viewStatementUrl: String?
+    let makePaymentUrl:   String?
+}
+
+struct SpringPage<T: Decodable>: Decodable {
+    let content:       [T]
+    let totalElements: Int
 }
 
 // MARK: - Errors
@@ -167,6 +191,14 @@ final class APIClient {
         let body  = try encoder.encode(req)
         let data  = try await post("/user-cards", body: body, bearerToken: token)
         return try decoder.decode(UserCardDTO.self, from: data)
+    }
+
+    // MARK: Statements
+
+    func fetchStatements(cardId: Int, page: Int = 0, size: Int = 20) async throws -> SpringPage<CardStatementDTO> {
+        let token = try await currentToken()
+        let data  = try await get("/statements?cardId=\(cardId)&page=\(page)&size=\(size)", bearerToken: token)
+        return try decoder.decode(SpringPage<CardStatementDTO>.self, from: data)
     }
 
     // MARK: Gmail

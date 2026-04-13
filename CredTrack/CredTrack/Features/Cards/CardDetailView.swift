@@ -5,7 +5,10 @@ struct CardDetailView: View {
     let card: UserCardDTO
     @Environment(\.dismiss) private var dismiss
 
-    @State private var tooltipExpanded = false
+    @State private var tooltipExpanded    = false
+    @State private var statements:        [CardStatementDTO] = []
+    @State private var totalStatements:   Int = 0
+    @State private var statementsLoading  = false
 
     private var model: CardModel { card.toCardModel() }
 
@@ -49,6 +52,7 @@ struct CardDetailView: View {
             HStack {
                 CTBackButton { dismiss() }
                 Spacer()
+                statusBadge
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
@@ -62,6 +66,8 @@ struct CardDetailView: View {
 
                     statsRow
                     Spacer().frame(height: 32)
+                    paymentSection
+                    statementsSection
                     infoSection
                     Spacer().frame(height: 56)
                 }
@@ -84,6 +90,14 @@ struct CardDetailView: View {
             .ignoresSafeArea()
         )
         .navigationBarHidden(true)
+        .task {
+            statementsLoading = true
+            if let page = try? await APIClient.shared.fetchStatements(cardId: card.id, size: 5) {
+                statements      = page.content
+                totalStatements = page.totalElements
+            }
+            statementsLoading = false
+        }
     }
 
     // MARK: - Card hero
@@ -249,6 +263,156 @@ struct CardDetailView: View {
         }
     }
 
+    // MARK: - Payment info section
+
+    @ViewBuilder
+    private var paymentSection: some View {
+        let hasAny = card.statementBalance != nil
+                  || card.minimumDue != nil
+                  || card.paymentDueDate != nil
+                  || card.lastPaymentDate != nil
+                  || card.lastPaymentAmount != nil
+        if hasAny {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("PAYMENT INFO")
+                    .font(.ctMicro)
+                    .foregroundColor(.ctTextSecondary)
+                    .padding(.leading, 4)
+                    .padding(.horizontal, 20)
+
+                VStack(spacing: 0) {
+                    if let sb = card.statementBalance {
+                        DetailInfoRow(icon: "calendar.badge.clock",
+                                      label: "Statement Balance",
+                                      value: formatCurrency(sb))
+                        if card.minimumDue != nil || card.paymentDueDate != nil
+                            || card.lastPaymentDate != nil || card.lastPaymentAmount != nil {
+                            rowDivider
+                        }
+                    }
+                    if let md = card.minimumDue {
+                        DetailInfoRow(icon: "exclamationmark.circle.fill",
+                                      label: "Minimum Due",
+                                      value: formatCurrency(md))
+                        if card.paymentDueDate != nil
+                            || card.lastPaymentDate != nil || card.lastPaymentAmount != nil {
+                            rowDivider
+                        }
+                    }
+                    if let pdd = card.paymentDueDate {
+                        DetailInfoRow(icon: "calendar",
+                                      label: "Payment Due",
+                                      value: formatDate(pdd))
+                        if card.lastPaymentDate != nil || card.lastPaymentAmount != nil {
+                            rowDivider
+                        }
+                    }
+                    if let lpd = card.lastPaymentDate, let lpa = card.lastPaymentAmount {
+                        DetailInfoRow(icon: "banknote.fill",
+                                      label: "Last Payment",
+                                      value: "\(formatCurrency(lpa)) on \(formatDate(lpd))")
+                    } else if let lpd = card.lastPaymentDate {
+                        DetailInfoRow(icon: "banknote.fill",
+                                      label: "Last Payment Date",
+                                      value: formatDate(lpd))
+                    } else if let lpa = card.lastPaymentAmount {
+                        DetailInfoRow(icon: "banknote.fill",
+                                      label: "Last Payment",
+                                      value: formatCurrency(lpa))
+                    }
+                }
+                .background(Color.ctSurface)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(Color.NeoPop.Black.c200, lineWidth: 1)
+                )
+                .padding(.horizontal, 20)
+            }
+            .padding(.bottom, 24)
+        }
+    }
+
+    // MARK: - Statements section
+
+    private var statementsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("STATEMENTS")
+                    .font(.ctMicro)
+                    .foregroundColor(.ctTextSecondary)
+                    .padding(.leading, 4)
+                Spacer()
+                if totalStatements > 5 {
+                    NavigationLink(destination: StatementsListView(card: card)) {
+                        Text("View All (\(totalStatements))")
+                            .font(.ctMicro)
+                            .foregroundColor(.ctTextSecondary)
+                    }
+                    .padding(.trailing, 4)
+                }
+            }
+            .padding(.horizontal, 20)
+
+            if statementsLoading {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .tint(.ctTextSecondary)
+                    Spacer()
+                }
+                .padding(.vertical, 28)
+                .background(Color.ctSurface)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.NeoPop.Black.c200, lineWidth: 1))
+                .padding(.horizontal, 20)
+            } else if statements.isEmpty {
+                HStack {
+                    Spacer()
+                    Text("No statements yet")
+                        .font(.ctBody)
+                        .foregroundColor(.ctTextSecondary)
+                    Spacer()
+                }
+                .padding(.vertical, 28)
+                .background(Color.ctSurface)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.NeoPop.Black.c200, lineWidth: 1))
+                .padding(.horizontal, 20)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(statements.enumerated()), id: \.element.id) { index, stmt in
+                        StatementRow(statement: stmt, formatCurrency: formatCurrency, formatDate: formatDate)
+                        if index < statements.count - 1 {
+                            rowDivider
+                        }
+                    }
+                    if totalStatements > 5 {
+                        rowDivider
+                        NavigationLink(destination: StatementsListView(card: card)) {
+                            HStack {
+                                Text("View all \(totalStatements) statements")
+                                    .font(.ctBody)
+                                    .foregroundColor(.ctTextSecondary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.ctTextSecondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                    }
+                }
+                .background(Color.ctSurface)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.NeoPop.Black.c200, lineWidth: 1))
+                .padding(.horizontal, 20)
+            }
+        }
+        .padding(.bottom, 24)
+    }
+
     // MARK: - Status badge
 
     private var statusBadge: some View {
@@ -297,6 +461,17 @@ struct CardDetailView: View {
         if value >= 1_000     { return String(format: "$%.1fK", value / 1_000) }
         return String(format: "$%.0f", value)
     }
+
+    private func formatDate(_ iso: String) -> String {
+        let parser = DateFormatter()
+        parser.dateFormat = "yyyy-MM-dd"
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        guard let date = parser.date(from: iso) else { return iso }
+        let display = DateFormatter()
+        display.dateStyle = .medium
+        display.timeStyle = .none
+        return display.string(from: date)
+    }
 }
 
 // MARK: - Detail Info Row
@@ -324,6 +499,66 @@ private struct DetailInfoRow: View {
                     .lineLimit(1)
             }
             Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+    }
+}
+
+// MARK: - Statement Row
+
+private struct StatementRow: View {
+    let statement:     CardStatementDTO
+    let formatCurrency: (Double) -> String
+    let formatDate:     (String) -> String
+
+    private var monthYear: String {
+        guard let iso = statement.statementDate else { return "—" }
+        let parser = DateFormatter()
+        parser.dateFormat = "yyyy-MM-dd"
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        guard let date = parser.date(from: iso) else { return iso }
+        let display = DateFormatter()
+        display.dateFormat = "MMM yyyy"
+        return display.string(from: date)
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "doc.text.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.ctTextPrimary)
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(Color.NeoPop.Black.c200))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(monthYear)
+                    .font(.ctBody)
+                    .foregroundColor(.ctTextPrimary)
+                HStack(spacing: 8) {
+                    if let dd = statement.dueDate {
+                        Text("Due \(formatDate(dd))")
+                            .font(.ctMicro)
+                            .foregroundColor(.ctTextSecondary)
+                    }
+                    if let md = statement.minimumDue {
+                        Text("·")
+                            .font(.ctMicro)
+                            .foregroundColor(.ctTextSecondary)
+                        Text("Min \(formatCurrency(md))")
+                            .font(.ctMicro)
+                            .foregroundColor(.ctTextSecondary)
+                    }
+                }
+            }
+
+            Spacer()
+
+            if let balance = statement.statementBalance {
+                Text(formatCurrency(balance))
+                    .font(.system(.body, design: .default).weight(.semibold))
+                    .foregroundColor(.ctTextPrimary)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
