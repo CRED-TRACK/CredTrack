@@ -5,10 +5,11 @@ struct CardDetailView: View {
     let card: UserCardDTO
     @Environment(\.dismiss) private var dismiss
 
-    @State private var tooltipExpanded    = false
-    @State private var statements:        [CardStatementDTO] = []
-    @State private var totalStatements:   Int = 0
-    @State private var statementsLoading  = false
+    @State private var tooltipExpanded         = false
+    @State private var statements:             [CardStatementDTO] = []
+    @State private var totalStatements:        Int = 0
+    @State private var statementsLoading       = false
+    @State private var navigateToAllStatements = false
 
     private var model: CardModel { card.toCardModel() }
 
@@ -337,19 +338,31 @@ struct CardDetailView: View {
 
     private var statementsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
+            // Hidden programmatic NavigationLink for "View All"
+            NavigationLink(
+                destination: StatementsListView(card: card),
+                isActive: $navigateToAllStatements
+            ) { EmptyView() }
+                .hidden()
+
+            // Section header — "View All" NeoPop button on the right when needed
+            HStack(alignment: .center) {
                 Text("STATEMENTS")
                     .font(.ctMicro)
                     .foregroundColor(.ctTextSecondary)
                     .padding(.leading, 4)
                 Spacer()
                 if totalStatements > 5 {
-                    NavigationLink(destination: StatementsListView(card: card)) {
-                        Text("View All (\(totalStatements))")
-                            .font(.ctMicro)
-                            .foregroundColor(.ctTextSecondary)
+                    NeoPopElevatedButton(
+                        title:          "View All",
+                        faceColor:      .white,
+                        labelColor:     .black,
+                        superViewColor: .popDeepBlack,
+                        fontSize:       12
+                    ) {
+                        navigateToAllStatements = true
                     }
-                    .padding(.trailing, 4)
+                    .frame(width: 130, height: 34)
                 }
             }
             .padding(.horizontal, 20)
@@ -382,25 +395,13 @@ struct CardDetailView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(statements.enumerated()), id: \.element.id) { index, stmt in
-                        StatementRow(statement: stmt, formatCurrency: formatCurrency, formatDate: formatDate)
+                        NavigationLink(destination: StatementDetailView(statement: stmt, card: card)) {
+                            StatementRow(statement: stmt, formatCurrency: formatCurrency, formatDate: formatDate)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                         if index < statements.count - 1 {
                             rowDivider
-                        }
-                    }
-                    if totalStatements > 5 {
-                        rowDivider
-                        NavigationLink(destination: StatementsListView(card: card)) {
-                            HStack {
-                                Text("View all \(totalStatements) statements")
-                                    .font(.ctBody)
-                                    .foregroundColor(.ctTextSecondary)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(.ctTextSecondary)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
                         }
                     }
                 }
