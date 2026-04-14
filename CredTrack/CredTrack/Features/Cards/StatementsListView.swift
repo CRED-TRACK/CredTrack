@@ -54,7 +54,11 @@ struct StatementsListView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 0) {
                         ForEach(Array(statements.enumerated()), id: \.element.id) { index, stmt in
-                            StatementDetailRow(statement: stmt)
+                            NavigationLink(destination: StatementDetailView(statement: stmt, card: card)) {
+                                StatementDetailRow(statement: stmt)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
 
                             if index < statements.count - 1 {
                                 Rectangle()
@@ -163,10 +167,6 @@ private struct StatementDetailRow: View {
         return String(format: "$%.0f", v)
     }
 
-    private var hasActions: Bool {
-        statement.viewStatementUrl != nil || statement.makePaymentUrl != nil
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // ── Main row ──────────────────────────────────────────────────────
@@ -208,40 +208,6 @@ private struct StatementDetailRow: View {
                 }
             }
 
-            // ── Action buttons ────────────────────────────────────────────────
-            if hasActions {
-                HStack(spacing: 10) {
-                    if let urlStr = statement.viewStatementUrl, let link = URL(string: urlStr) {
-                        Link(destination: link) {
-                            Label("View Statement", systemImage: "doc.text")
-                                .font(.ctMicro)
-                                .foregroundColor(.ctTextSecondary)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.NeoPop.Black.c200)
-                                        .overlay(Capsule().strokeBorder(Color.NeoPop.Black.c100.opacity(0.4), lineWidth: 1))
-                                )
-                        }
-                    }
-                    if let urlStr = statement.makePaymentUrl, let link = URL(string: urlStr) {
-                        Link(destination: link) {
-                            Label("Pay Now", systemImage: "creditcard.fill")
-                                .font(.ctMicro)
-                                .foregroundColor(Color(UIColor.NeoPop.State.success300))
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(Color(UIColor.NeoPop.State.success300).opacity(0.12))
-                                        .overlay(Capsule().strokeBorder(Color(UIColor.NeoPop.State.success300).opacity(0.35), lineWidth: 1))
-                                )
-                        }
-                    }
-                }
-                .padding(.leading, 48) // align with text, past the icon
-            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
