@@ -2,12 +2,16 @@ package com.credtrack.backend.service;
 
 import com.credtrack.backend.dto.CardStatementResponse;
 import com.credtrack.backend.dto.StatementCreateRequest;
+import com.credtrack.backend.entity.CardPayment;
 import com.credtrack.backend.entity.CardStatement;
 import com.credtrack.backend.entity.User;
 import com.credtrack.backend.entity.UserCard;
+import com.credtrack.backend.repository.CardPaymentRepository;
 import com.credtrack.backend.repository.CardStatementRepository;
 import com.credtrack.backend.repository.UserCardRepository;
 import com.credtrack.backend.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -17,14 +21,19 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class StatementInternalService {
 
+    private static final Logger log = LoggerFactory.getLogger(StatementInternalService.class);
+
     private final CardStatementRepository statementRepo;
+    private final CardPaymentRepository   paymentRepo;
     private final UserRepository          userRepo;
     private final UserCardRepository      userCardRepo;
 
     public StatementInternalService(CardStatementRepository statementRepo,
+                                    CardPaymentRepository paymentRepo,
                                     UserRepository userRepo,
                                     UserCardRepository userCardRepo) {
         this.statementRepo = statementRepo;
+        this.paymentRepo   = paymentRepo;
         this.userRepo      = userRepo;
         this.userCardRepo  = userCardRepo;
     }
@@ -76,6 +85,29 @@ public class StatementInternalService {
                 userCard.setStatementBalance(req.getStatementBalance());
                 userCard.setMinimumDue(req.getMinimumPaymentDue());
                 userCard.setPaymentDueDate(req.getDueDate());
+
+                // Check for an orphan payment — user may have paid before the statement
+                // email was sent (bank shows statement on app 1-2 days before emailing it)
+                CardPayment orphan = paymentRepo
+                        .findTopByUserCard_IdAndMatchedStatementIsNullOrderByPaymentDateAsc(userCard.getId())
+                        .orElse(null);
+
+                if (orphan != null) {
+                    saved.setIsPaid(true);
+                    saved.setPaidAmount(orphan.getAmount());
+                    saved.setPaymentDate(orphan.getPaymentDate());
+                    statementRepo.save(saved);
+
+                    orphan.setMatchedStatement(saved);
+                    paymentRepo.save(orphan);
+
+                    userCard.setLastPaymentDate(orphan.getPaymentDate());
+                    userCard.setLastPaymentAmount(orphan.getAmount());
+
+                    log.info("Orphan payment id={} auto-matched to new statement id={} for cardId={}",
+                            orphan.getId(), saved.getId(), userCard.getId());
+                }
+
                 userCardRepo.save(userCard);
             }
 

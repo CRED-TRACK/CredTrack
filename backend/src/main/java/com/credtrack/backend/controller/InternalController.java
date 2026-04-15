@@ -2,6 +2,7 @@ package com.credtrack.backend.controller;
 
 import com.credtrack.backend.dto.CardStatementResponse;
 import com.credtrack.backend.dto.GmailCredentialRequest;
+import com.credtrack.backend.dto.PaymentCreateRequest;
 import com.credtrack.backend.dto.StatementCreateRequest;
 import com.credtrack.backend.dto.TransactionCreateRequest;
 import com.credtrack.backend.dto.TransactionResponse;
@@ -12,6 +13,7 @@ import com.credtrack.backend.repository.CardStatementRepository;
 import com.credtrack.backend.repository.GmailCredentialRepository;
 import com.credtrack.backend.repository.UserCardRepository;
 import com.credtrack.backend.service.GmailOAuthService;
+import com.credtrack.backend.service.PaymentInternalService;
 import com.credtrack.backend.service.StatementInternalService;
 import com.credtrack.backend.service.TransactionInternalService;
 import com.credtrack.backend.service.UserCardService;
@@ -42,6 +44,7 @@ public class InternalController {
 
     private final TransactionInternalService internalService;
     private final StatementInternalService   statementService;
+    private final PaymentInternalService     paymentService;
     private final UserCardService            userCardService;
     private final GmailCredentialRepository  gmailCredentialRepo;
     private final UserCardRepository         userCardRepo;
@@ -50,6 +53,7 @@ public class InternalController {
 
     public InternalController(TransactionInternalService internalService,
                               StatementInternalService statementService,
+                              PaymentInternalService paymentService,
                               UserCardService userCardService,
                               GmailCredentialRepository gmailCredentialRepo,
                               UserCardRepository userCardRepo,
@@ -57,6 +61,7 @@ public class InternalController {
                               CardStatementRepository statementRepo) {
         this.internalService     = internalService;
         this.statementService    = statementService;
+        this.paymentService      = paymentService;
         this.userCardService     = userCardService;
         this.gmailCredentialRepo = gmailCredentialRepo;
         this.userCardRepo        = userCardRepo;
@@ -97,6 +102,10 @@ public class InternalController {
                                                 .map(s -> s.getStatementDate() != null
                                                         ? s.getStatementDate().toString() : null)
                                                 .orElse(null));
+                                        // AI uses this to decide whether to scan for payment emails:
+                                        // false → all statements paid (or none exist) → skip payment scan
+                                        card.put("hasUnpaidStatements",
+                                                statementRepo.hasUnpaidStatements(uc.getId()));
                                         return card;
                                     })
                                     .toList();
@@ -126,6 +135,18 @@ public class InternalController {
             @RequestBody StatementCreateRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(statementService.create(req));
+    }
+
+    /**
+     * POST /internal/payments
+     * AI agent writes an extracted Chase payment confirmation.
+     * Marks the oldest unpaid statement for the card as paid.
+     * Returns 204 on success, 409 if gmailMessageId already processed.
+     */
+    @PostMapping("/payments")
+    public ResponseEntity<Void> createPayment(@RequestBody PaymentCreateRequest req) {
+        paymentService.create(req);
+        return ResponseEntity.noContent().build();
     }
 
     /**
