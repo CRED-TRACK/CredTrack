@@ -72,6 +72,9 @@ public class UserCardService {
                 .lastPaymentAmount(req.getLastPaymentAmount())
                 .build();
 
+        // The AI agent poll coordinator checks gmailScanComplete on every cycle.
+        // A newly added card has gmailScanComplete=false, so the next poll will
+        // automatically spawn an InitCardScanActor for it — no explicit trigger needed.
         return UserCardResponse.from(userCardRepo.save(card));
     }
 

@@ -79,8 +79,11 @@ public class PaymentInternalService {
             return;
         }
 
-        // Primary: match by payment amount == statement balance.
-        // This avoids the race condition where concurrent payments all grab the same "oldest unpaid".
+        // ── Statement matching (3-tier, most precise first) ────────────────────────────────
+        //
+        // Tier 1 — Amount match: statementBalance == paymentAmount.
+        //   Works for banks that include the balance in the statement email (Chase, BOA, Discover).
+        //   Immune to concurrent-payment races because each statement has a unique balance.
         CardStatement stmt = null;
         if (req.getAmount() != null) {
             stmt = statementRepo
@@ -88,15 +91,30 @@ public class PaymentInternalService {
                     .orElse(null);
         }
 
-        // Fallback for banks where statement balance is never extracted (e.g. Amex — the statement
-        // email only contains links, no dollar amount). Match to oldest unpaid statement with null balance.
+        // Tier 2 — Due-date match: earliest unpaid statement whose due date ≥ payment date.
+        //   For banks whose statement email never includes a dollar balance (e.g. Amex).
+        //   Payment Jan 8 → dueDate Feb 1; payment Feb 5 → dueDate Mar 1; etc.
+        //   Each billing cycle has a unique due date, so concurrent payments safely get
+        //   different statements — eliminates the "all grab oldest" race condition.
+        if (stmt == null && req.getPaymentDate() != null) {
+            stmt = statementRepo
+                    .findFirstByUserCard_IdAndIsPaidFalseAndDueDateGreaterThanEqualOrderByDueDateAsc(
+                            userCard.getId(), req.getPaymentDate())
+                    .orElse(null);
+            if (stmt != null) {
+                log.info("Date-based match: payment {} ({}) → statement id={} dueDate={}",
+                        req.getGmailMessageId(), req.getPaymentDate(), stmt.getId(), stmt.getDueDate());
+            }
+        }
+
+        // Tier 3 — Last-resort: oldest null-balance unpaid statement (no due date stored).
         if (stmt == null) {
             stmt = statementRepo
                     .findTopByUserCard_IdAndStatementBalanceIsNullAndIsPaidFalseOrderByStatementDateAsc(userCard.getId())
                     .orElse(null);
             if (stmt != null) {
-                log.info("Amount match failed; falling back to oldest null-balance statement id={} for cardId={}",
-                        stmt.getId(), userCard.getId());
+                log.warn("Last-resort fallback: payment {} → oldest null-balance statement id={} for cardId={}",
+                        req.getGmailMessageId(), stmt.getId(), userCard.getId());
             }
         }
 
@@ -108,17 +126,26 @@ public class PaymentInternalService {
 
             payment.setMatchedStatement(stmt);
 
-            // Update UserCard last payment fields
-            userCard.setLastPaymentDate(req.getPaymentDate());
-            userCard.setLastPaymentAmount(req.getAmount());
-            userCardRepo.save(userCard);
+            // Atomic conditional UPDATE — lets the DB enforce "latest date wins".
+            // All concurrent payment transactions may issue this simultaneously; only the one
+            // carrying the most recent date will satisfy the WHERE clause and update the row.
+            // This eliminates the read-check-write race where all transactions read null,
+            // all pass an in-Java isMoreRecent check, and the last committer wins arbitrarily.
+            if (req.getPaymentDate() != null) {
+                int updated = userCardRepo.updateLastPaymentIfMoreRecent(
+                        userCard.getId(), req.getPaymentDate(), req.getAmount());
+                if (updated == 0) {
+                    log.debug("Card {} already has a more-recent payment date — skipping lastPayment update",
+                            userCard.getId());
+                }
+            }
 
             log.info("Statement id={} marked paid for cardId={} amount={} paymentDate={}",
                     stmt.getId(), userCard.getId(), req.getAmount(), req.getPaymentDate());
         } else {
-            // No statement matched — saved as orphan
-            log.info("No unpaid statement matched amount={} for cardId={} — payment saved as orphan",
-                    req.getAmount(), userCard.getId());
+            // No statement matched — saved as orphan for retroactive matching later
+            log.info("No unpaid statement matched for cardId={} paymentDate={} — saved as orphan",
+                    userCard.getId(), req.getPaymentDate());
         }
 
         paymentRepo.save(payment);

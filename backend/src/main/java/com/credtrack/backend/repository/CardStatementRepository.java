@@ -4,8 +4,6 @@ import com.credtrack.backend.entity.CardStatement;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -27,19 +25,18 @@ public interface CardStatementRepository extends JpaRepository<CardStatement, Lo
     // Latest statement for a card — used to update UserCard fields
     Optional<CardStatement> findTopByUserCard_IdOrderByStatementDateDesc(Long userCardId);
 
-    // Payment tracking — unpaid statements where balance is positive OR null (unknown, e.g. Amex).
-    // Excludes zero/negative balance (bank owes user, no payment needed).
-    @Query("SELECT CASE WHEN COUNT(s) > 0 THEN TRUE ELSE FALSE END FROM CardStatement s " +
-           "WHERE s.userCard.id = :cardId AND s.isPaid = false " +
-           "AND (s.statementBalance IS NULL OR s.statementBalance > 0)")
-    boolean hasUnpaidStatements(@Param("cardId") Long cardId);
-
     // Match by exact balance — primary matching strategy (full-balance payments)
     Optional<CardStatement> findFirstByUserCard_IdAndStatementBalanceAndIsPaidFalse(
             Long userCardId, BigDecimal statementBalance);
 
-    // Fallback for banks that don't include balance in statement emails (e.g. Amex).
-    // Used when amount-based matching fails and the statement balance was never extracted.
+    // Date-based match — for banks that never include balance in statement emails (e.g. Amex).
+    // Returns the unpaid statement whose due date is the earliest one on-or-after the payment date.
+    // Example: payment Jan 8 → dueDate Feb 1; payment Feb 5 → dueDate Mar 1.
+    // Each billing cycle has a unique due date so concurrent payments safely get different statements.
+    Optional<CardStatement> findFirstByUserCard_IdAndIsPaidFalseAndDueDateGreaterThanEqualOrderByDueDateAsc(
+            Long userCardId, java.time.LocalDate paymentDate);
+
+    // Last-resort fallback — oldest null-balance unpaid statement (no due date available).
     Optional<CardStatement> findTopByUserCard_IdAndStatementBalanceIsNullAndIsPaidFalseOrderByStatementDateAsc(Long userCardId);
 
     // Oldest unpaid statement — orphan auto-match on statement arrival
