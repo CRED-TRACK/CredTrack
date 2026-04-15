@@ -59,6 +59,7 @@ public class CardStatement {
     @Column(name = "make_payment_url", columnDefinition = "TEXT")
     private String makePaymentUrl;
 
+    @Builder.Default
     @Column(name = "is_paid", columnDefinition = "boolean not null default false")
     private Boolean isPaid = false;
 

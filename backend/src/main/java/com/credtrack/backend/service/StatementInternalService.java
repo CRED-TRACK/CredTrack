@@ -87,25 +87,37 @@ public class StatementInternalService {
                 userCard.setPaymentDueDate(req.getDueDate());
 
                 // Check for an orphan payment — user may have paid before the statement
-                // email was sent (bank shows statement on app 1-2 days before emailing it)
-                CardPayment orphan = paymentRepo
-                        .findTopByUserCard_IdAndMatchedStatementIsNullOrderByPaymentDateAsc(userCard.getId())
-                        .orElse(null);
+                // email was sent (bank shows statement on app 1-2 days before emailing it).
+                // Guard: only auto-match if the orphan payment date is within 45 days
+                // before the statement date (prevents stale Dec payments matching Apr statements).
+                if (saved.getStatementDate() != null) {
+                    java.time.LocalDate statementDate = saved.getStatementDate();
+                    java.time.LocalDate windowStart   = statementDate.minusDays(45);
 
-                if (orphan != null) {
-                    saved.setIsPaid(true);
-                    saved.setPaidAmount(orphan.getAmount());
-                    saved.setPaymentDate(orphan.getPaymentDate());
-                    statementRepo.save(saved);
+                    CardPayment orphan = paymentRepo
+                            .findTopByUserCard_IdAndMatchedStatementIsNullOrderByPaymentDateAsc(userCard.getId())
+                            .orElse(null);
 
-                    orphan.setMatchedStatement(saved);
-                    paymentRepo.save(orphan);
+                    if (orphan != null && orphan.getPaymentDate() != null
+                            && !orphan.getPaymentDate().isBefore(windowStart)
+                            && !orphan.getPaymentDate().isAfter(statementDate)) {
+                        saved.setIsPaid(true);
+                        saved.setPaidAmount(orphan.getAmount());
+                        saved.setPaymentDate(orphan.getPaymentDate());
+                        statementRepo.save(saved);
 
-                    userCard.setLastPaymentDate(orphan.getPaymentDate());
-                    userCard.setLastPaymentAmount(orphan.getAmount());
+                        orphan.setMatchedStatement(saved);
+                        paymentRepo.save(orphan);
 
-                    log.info("Orphan payment id={} auto-matched to new statement id={} for cardId={}",
-                            orphan.getId(), saved.getId(), userCard.getId());
+                        userCard.setLastPaymentDate(orphan.getPaymentDate());
+                        userCard.setLastPaymentAmount(orphan.getAmount());
+
+                        log.info("Orphan payment id={} auto-matched to new statement id={} for cardId={}",
+                                orphan.getId(), saved.getId(), userCard.getId());
+                    } else if (orphan != null) {
+                        log.debug("Orphan payment id={} paymentDate={} outside 45-day window for statement date={} — skipped",
+                                orphan.getId(), orphan.getPaymentDate(), statementDate);
+                    }
                 }
 
                 userCardRepo.save(userCard);

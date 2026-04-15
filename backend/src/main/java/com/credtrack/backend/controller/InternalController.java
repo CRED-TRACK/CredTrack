@@ -102,10 +102,6 @@ public class InternalController {
                                                 .map(s -> s.getStatementDate() != null
                                                         ? s.getStatementDate().toString() : null)
                                                 .orElse(null));
-                                        // AI uses this to decide whether to scan for payment emails:
-                                        // false → all statements paid (or none exist) → skip payment scan
-                                        card.put("hasUnpaidStatements",
-                                                statementRepo.hasUnpaidStatements(uc.getId()));
                                         return card;
                                     })
                                     .toList();
@@ -257,19 +253,20 @@ public class InternalController {
     }
 
     /**
-     * POST /internal/cards/{cardId}/gmail-scan-complete
-     * AI agent calls this after finishing the initial historical Gmail scan for a card.
-     * Prevents re-scanning old emails on every poll cycle.
+     * POST /internal/cards/{cardId}/init-complete
+     * AI agent calls this after the one-time historical init scan for a card succeeds.
+     * Sets gmailScanComplete=true so the coordinator switches the card to normal
+     * incremental polling on subsequent poll cycles.
      */
-    @PostMapping("/cards/{cardId}/gmail-scan-complete")
+    @PostMapping("/cards/{cardId}/init-complete")
     @Transactional
-    public ResponseEntity<Void> markGmailScanComplete(@PathVariable Long cardId) {
+    public ResponseEntity<Void> markInitComplete(@PathVariable Long cardId) {
         UserCard card = userCardRepo.findById(cardId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Card not found: " + cardId));
         card.setGmailScanComplete(true);
         userCardRepo.save(card);
-        log.info("Gmail scan marked complete for card {}", cardId);
+        log.info("Init scan marked complete for card {}", cardId);
         return ResponseEntity.ok().build();
     }
 }
