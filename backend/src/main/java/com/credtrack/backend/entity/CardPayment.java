@@ -9,28 +9,32 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(
-    name = "card_statements",
+    name = "card_payments",
     uniqueConstraints = @UniqueConstraint(
-        name = "uq_statement_gmail_message_id",
+        name = "uq_payment_gmail_message_id",
         columnNames = {"gmail_message_id"}
     )
 )
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class CardStatement {
+public class CardPayment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Always know the user
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // Nullable — resolved by cardLastFour; null if card not yet registered in CredTrack
+    // Nullable — best-effort match by card last four
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_card_id")
     private UserCard userCard;
+
+    // Nullable — null until matched to a statement (orphan payments have no match yet)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "matched_statement_id")
+    private CardStatement matchedStatement;
 
     @Column(name = "gmail_message_id", nullable = false, length = 50)
     private String gmailMessageId;
@@ -41,33 +45,14 @@ public class CardStatement {
     @Column(name = "bank", length = 50)
     private String bank;
 
-    @Column(name = "statement_date")
-    private LocalDate statementDate;
-
-    @Column(name = "statement_balance", precision = 12, scale = 2)
-    private BigDecimal statementBalance;
-
-    @Column(name = "minimum_due", precision = 12, scale = 2)
-    private BigDecimal minimumDue;
-
-    @Column(name = "due_date")
-    private LocalDate dueDate;
-
-    @Column(name = "view_statement_url", columnDefinition = "TEXT")
-    private String viewStatementUrl;
-
-    @Column(name = "make_payment_url", columnDefinition = "TEXT")
-    private String makePaymentUrl;
-
-    @Column(name = "is_paid", columnDefinition = "boolean not null default false")
-    private Boolean isPaid = false;
-
-    // Denormalized from the matched CardPayment for easy display — set when a payment is matched
-    @Column(name = "paid_amount", precision = 12, scale = 2)
-    private BigDecimal paidAmount;
+    @Column(name = "amount", precision = 12, scale = 2)
+    private BigDecimal amount;
 
     @Column(name = "payment_date")
     private LocalDate paymentDate;
+
+    @Column(name = "effective_date")
+    private LocalDate effectiveDate;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -21,6 +21,9 @@ public class CardStatementResponse {
     private LocalDate dueDate;
     private String    viewStatementUrl;
     private String    makePaymentUrl;
+    private Boolean   isPaid;
+    private BigDecimal paidAmount;
+    private LocalDate  paymentDate;
     private LocalDateTime createdAt;
 
     public static CardStatementResponse from(CardStatement s) {
@@ -35,6 +38,9 @@ public class CardStatementResponse {
                 .dueDate(s.getDueDate())
                 .viewStatementUrl(s.getViewStatementUrl())
                 .makePaymentUrl(s.getMakePaymentUrl())
+                .isPaid(s.getIsPaid())
+                .paidAmount(s.getPaidAmount())
+                .paymentDate(s.getPaymentDate())
                 .createdAt(s.getCreatedAt())
                 .build();
     }
