@@ -2,15 +2,11 @@ name: Backend Build
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'backend/**'
+    branches: [ main ]
+    paths: [ 'backend/**' ]
   pull_request:
-    branches:
-      - main
-    paths:
-      - 'backend/**'
+    branches: [ main ]
+    paths: [ 'backend/**' ]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -30,6 +26,14 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build with Maven
+      - name: Build & Test with Maven
         working-directory: backend
-        run: ./mvnw clean package -DskipTests
+        run: ./mvnw clean verify
+
+      - name: Upload JAR artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: backend/target/*.jar
+          retention-days: 7
