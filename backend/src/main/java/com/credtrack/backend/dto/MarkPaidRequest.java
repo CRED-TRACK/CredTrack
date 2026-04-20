@@ -9,11 +9,13 @@ import java.time.LocalDate;
 
 /**
  * Body for POST /statements/{id}/mark-paid.
- * paymentDate is optional — defaults to today (UTC) if omitted.
+ * Both fields are optional — paymentDate defaults to today (UTC) if omitted.
  */
 @Getter @Setter @NoArgsConstructor
 public class MarkPaidRequest {
 
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate paymentDate;
+
+    private java.math.BigDecimal paidAmount;
 }

@@ -204,6 +204,14 @@ final class APIClient {
         return try decoder.decode(SpringPage<CardStatementDTO>.self, from: data)
     }
 
+    func markStatementPaid(statementId: Int, paymentDate: String, paidAmount: Double?) async throws -> CardStatementDTO {
+        struct Body: Encodable { let paymentDate: String; let paidAmount: Double? }
+        let body  = try encoder.encode(Body(paymentDate: paymentDate, paidAmount: paidAmount))
+        let token = try await currentToken()
+        let data  = try await post("/statements/\(statementId)/mark-paid", body: body, bearerToken: token)
+        return try decoder.decode(CardStatementDTO.self, from: data)
+    }
+
     // MARK: Gmail
 
     func fetchGmailStatus() async throws -> GmailStatusResponse {

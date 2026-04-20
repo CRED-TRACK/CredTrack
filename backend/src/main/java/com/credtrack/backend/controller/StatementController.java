@@ -106,6 +106,9 @@ public class StatementController {
 
         stmt.setIsPaid(true);
         stmt.setPaymentDate(paymentDate);
+        if (req != null && req.getPaidAmount() != null) {
+            stmt.setPaidAmount(req.getPaidAmount());
+        }
         statementRepo.save(stmt);
 
         // Keep UserCard.lastPaymentDate in sync if this card is registered

@@ -1,10 +1,14 @@
 import SwiftUI
 
 struct StatementDetailView: View {
-    let statement: CardStatementDTO
-    let card:      UserCardDTO
+    @State var statement: CardStatementDTO
+    let card:             UserCardDTO
 
     @Environment(\.dismiss) private var dismiss
+
+    @State private var showMarkPaidSheet = false
+    @State private var isMarkingPaid     = false
+    @State private var markPaidError: String? = nil
 
     // MARK: - Body
 
@@ -40,6 +44,13 @@ struct StatementDetailView: View {
             .ignoresSafeArea()
         )
         .navigationBarHidden(true)
+        .sheet(isPresented: $showMarkPaidSheet) {
+            MarkPaidSheet(statement: statement) { date, amount in
+                Task { await markPaid(date: date, amount: amount) }
+            }
+            .presentationDetents([.height(320)])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: - Nav bar
@@ -57,10 +68,28 @@ struct StatementDetailView: View {
                     .foregroundColor(.ctTextSecondary)
             }
             Spacer()
-            CTBackButton { dismiss() }
-                .opacity(0)
-                .disabled(true)
+            // Right slot — paid badge or mark-as-paid button
+            if statement.isPaid == true {
+                Label("Paid", systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Color(UIColor.NeoPop.State.success300))
+                    .transition(.scale.combined(with: .opacity))
+            } else {
+                NeoPopElevatedButton(
+                    title:          "Mark as Paid",
+                    faceColor:      .clear,
+                    labelColor:     UIColor.NeoPop.State.success300,
+                    superViewColor: .clear,
+                    borderColor:    UIColor.NeoPop.State.success300,
+                    fontSize:       12
+                ) {
+                    showMarkPaidSheet = true
+                }
+                .frame(width: 120, height: 34)
+                .transition(.scale.combined(with: .opacity))
+            }
         }
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: statement.isPaid)
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
     }
@@ -167,11 +196,13 @@ struct StatementDetailView: View {
         }
     }
 
-    // MARK: - Action buttons
+    // MARK: - Action buttons (Pay Now only — Mark as Paid moved to nav bar)
 
     @ViewBuilder
     private var actionButtons: some View {
-        if let urlStr = statement.makePaymentUrl, let link = URL(string: urlStr) {
+        if statement.isPaid != true,
+           let urlStr = statement.makePaymentUrl,
+           let link = URL(string: urlStr) {
             NeoPopFloatingButton(
                 title:      "Pay Now",
                 shimmer:    true,
@@ -184,6 +215,23 @@ struct StatementDetailView: View {
             .frame(height: 56)
             .padding(.horizontal, 20)
         }
+    }
+
+    private func markPaid(date: String, amount: Double?) async {
+        isMarkingPaid = true
+        do {
+            let updated = try await APIClient.shared.markStatementPaid(
+                statementId: statement.id,
+                paymentDate: date,
+                paidAmount:  amount
+            )
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                statement = updated
+            }
+        } catch {
+            markPaidError = "Failed to mark paid. Try again."
+        }
+        isMarkingPaid = false
     }
 
     // MARK: - Helpers
@@ -265,5 +313,113 @@ private struct StmtInfoRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
+    }
+}
+
+// MARK: - Mark Paid Sheet
+
+private struct MarkPaidSheet: View {
+    let statement: CardStatementDTO
+    let onConfirm: (String, Double?) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedDate = Date()
+    @State private var amountText   = ""
+
+    private var dateString: String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f.string(from: selectedDate)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Handle
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.NeoPop.Black.c200)
+                .frame(width: 36, height: 4)
+                .padding(.top, 12)
+                .padding(.bottom, 20)
+
+            Text("Mark as Paid")
+                .font(.ctTitle)
+                .foregroundColor(.ctTextPrimary)
+                .padding(.bottom, 24)
+
+            VStack(spacing: 0) {
+                // Date picker row
+                HStack {
+                    Label("Payment Date", systemImage: "calendar")
+                        .font(.ctBody)
+                        .foregroundColor(.ctTextPrimary)
+                    Spacer()
+                    DatePicker("", selection: $selectedDate, displayedComponents: .date)
+                        .labelsHidden()
+                        .tint(Color(UIColor.NeoPop.State.success300))
+                        .colorScheme(.dark)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                Rectangle()
+                    .fill(Color.NeoPop.Black.c200)
+                    .frame(height: 0.5)
+                    .padding(.leading, 16)
+
+                // Amount row
+                HStack {
+                    Label("Amount Paid", systemImage: "dollarsign.circle")
+                        .font(.ctBody)
+                        .foregroundColor(.ctTextPrimary)
+                    Spacer()
+                    TextField(statement.statementBalance.map { String(format: "%.2f", $0) } ?? "Optional",
+                              text: $amountText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(.ctBody)
+                        .foregroundColor(.ctTextPrimary)
+                        .frame(width: 120)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            }
+            .background(Color.ctSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.NeoPop.Black.c200, lineWidth: 1))
+            .padding(.horizontal, 20)
+
+            Spacer()
+
+            NeoPopFloatingButton(
+                title:      "Confirm",
+                shimmer:    false,
+                faceColor:  UIColor.NeoPop.State.success300,
+                labelColor: .white,
+                showArrow:  false
+            ) {
+                let amount = Double(amountText.trimmingCharacters(in: .whitespaces))
+                dismiss()
+                onConfirm(dateString, amount)
+            }
+            .frame(height: 56)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 32)
+        }
+        .background(Color.ctBackground.ignoresSafeArea())
+        .onAppear {
+            // Pre-fill date with due date if available, else today
+            if let iso = statement.dueDate {
+                let f = DateFormatter()
+                f.dateFormat = "yyyy-MM-dd"
+                f.locale = Locale(identifier: "en_US_POSIX")
+                if let d = f.date(from: iso) { selectedDate = min(d, Date()) }
+            }
+            // Pre-fill amount with statement balance
+            if let bal = statement.statementBalance {
+                amountText = String(format: "%.2f", bal)
+            }
+        }
     }
 }

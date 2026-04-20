@@ -184,6 +184,7 @@ struct NeoPopElevatedButton: UIViewRepresentable {
     var faceColor:      UIColor = .white
     var labelColor:     UIColor = .black
     var superViewColor: UIColor = .popDeepBlack
+    var borderColor:    UIColor? = nil
     var fontSize:       CGFloat = 16
     let action:         () -> Void
 
@@ -198,14 +199,20 @@ struct NeoPopElevatedButton: UIViewRepresentable {
         let faceCol      = faceColor
         let labelCol     = labelColor
         let superCol     = superViewColor
+        let borderCol    = borderColor
         let titleStr     = title
         let fontSz       = fontSize
 
         host.onFirstLayout = { btn in
+            let faceBorder: EdgeColors? = borderCol.map {
+                EdgeColors(left: $0, right: $0, top: $0, bottom: $0)
+            }
             btn.configurePopButton(withModel: PopButton.Model(
-                position:        .bottomRight,
-                backgroundColor: faceCol,
-                superViewColor:  superCol
+                position:              .bottomRight,
+                backgroundColor:       faceCol,
+                superViewColor:        superCol,
+                buttonFaceBorderColor: faceBorder,
+                borderWidth:           borderCol != nil ? 1.0 : 0.0
             ))
             btn.configureButtonContent(withModel: PopButtonContainerView.Model(
                 attributedTitle: NSAttributedString(
