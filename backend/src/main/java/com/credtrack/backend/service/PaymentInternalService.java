@@ -91,15 +91,16 @@ public class PaymentInternalService {
                     .orElse(null);
         }
 
-        // Tier 2 — Due-date match: earliest unpaid statement whose due date ≥ payment date.
-        //   For banks whose statement email never includes a dollar balance (e.g. Amex).
-        //   Payment Jan 8 → dueDate Feb 1; payment Feb 5 → dueDate Mar 1; etc.
-        //   Each billing cycle has a unique due date, so concurrent payments safely get
-        //   different statements — eliminates the "all grab oldest" race condition.
+        // Tier 2 — Due-date match: earliest unpaid statement whose due date ≥ payment date
+        //   AND statementDate ≤ payment date (statement must have already closed).
+        //   The statementDate guard prevents mid-cycle payments (made to reduce utilization
+        //   before the billing period ends) from matching the still-open statement.
+        //   Mid-cycle payments saved as orphans are retroactively matched by
+        //   StatementInternalService when the statement email arrives within 45 days.
         if (stmt == null && req.getPaymentDate() != null) {
             stmt = statementRepo
-                    .findFirstByUserCard_IdAndIsPaidFalseAndDueDateGreaterThanEqualOrderByDueDateAsc(
-                            userCard.getId(), req.getPaymentDate())
+                    .findFirstByUserCard_IdAndIsPaidFalseAndStatementDateLessThanEqualAndDueDateGreaterThanEqualOrderByDueDateAsc(
+                            userCard.getId(), req.getPaymentDate(), req.getPaymentDate())
                     .orElse(null);
             if (stmt != null) {
                 log.info("Date-based match: payment {} ({}) → statement id={} dueDate={}",

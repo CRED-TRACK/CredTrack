@@ -201,10 +201,17 @@ private struct StatementDetailRow: View {
 
                 Spacer()
 
-                if let balance = statement.statementBalance {
-                    Text(currency(balance))
-                        .font(.system(.body, design: .default).weight(.semibold))
-                        .foregroundColor(.ctTextPrimary)
+                VStack(alignment: .trailing, spacing: 4) {
+                    if let balance = statement.statementBalance {
+                        Text(currency(balance))
+                            .font(.system(.body, design: .default).weight(.semibold))
+                            .foregroundColor(.ctTextPrimary)
+                    }
+                    if statement.isPaid == true {
+                        Label("Paid", systemImage: "checkmark.circle.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Color(UIColor.NeoPop.State.success300))
+                    }
                 }
             }
 

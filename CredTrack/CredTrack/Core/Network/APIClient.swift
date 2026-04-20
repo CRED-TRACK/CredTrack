@@ -109,6 +109,9 @@ struct CardStatementDTO: Decodable, Identifiable {
     let dueDate:          String?   // "YYYY-MM-DD"
     let viewStatementUrl: String?
     let makePaymentUrl:   String?
+    let isPaid:           Bool?
+    let paidAmount:       Double?
+    let paymentDate:      String?   // "YYYY-MM-DD"
 }
 
 struct SpringPage<T: Decodable>: Decodable {

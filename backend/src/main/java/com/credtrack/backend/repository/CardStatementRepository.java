@@ -30,11 +30,11 @@ public interface CardStatementRepository extends JpaRepository<CardStatement, Lo
             Long userCardId, BigDecimal statementBalance);
 
     // Date-based match — for banks that never include balance in statement emails (e.g. Amex).
-    // Returns the unpaid statement whose due date is the earliest one on-or-after the payment date.
-    // Example: payment Jan 8 → dueDate Feb 1; payment Feb 5 → dueDate Mar 1.
-    // Each billing cycle has a unique due date so concurrent payments safely get different statements.
-    Optional<CardStatement> findFirstByUserCard_IdAndIsPaidFalseAndDueDateGreaterThanEqualOrderByDueDateAsc(
-            Long userCardId, java.time.LocalDate paymentDate);
+    // statementDate <= paymentDate ensures we only match statements that had already closed
+    // before the payment was made, preventing mid-cycle payments from being matched to
+    // the still-open statement they were made during.
+    Optional<CardStatement> findFirstByUserCard_IdAndIsPaidFalseAndStatementDateLessThanEqualAndDueDateGreaterThanEqualOrderByDueDateAsc(
+            Long userCardId, java.time.LocalDate paymentDate, java.time.LocalDate paymentDate2);
 
     // Last-resort fallback — oldest null-balance unpaid statement (no due date available).
     Optional<CardStatement> findTopByUserCard_IdAndStatementBalanceIsNullAndIsPaidFalseOrderByStatementDateAsc(Long userCardId);

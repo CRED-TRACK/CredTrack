@@ -139,6 +139,23 @@ struct StatementDetailView: View {
                                 label: "Bank",
                                 value: bank)
                 }
+
+                if statement.isPaid == true {
+                    divider
+                    if let pd = statement.paymentDate {
+                        StmtInfoRow(icon: "checkmark.circle.fill",
+                                    label: "Payment Date",
+                                    value: formatDate(pd),
+                                    valueColor: Color(UIColor.NeoPop.State.success300))
+                    }
+                    if let pa = statement.paidAmount {
+                        divider
+                        StmtInfoRow(icon: "dollarsign.circle.fill",
+                                    label: "Amount Paid",
+                                    value: formatCurrency(pa),
+                                    valueColor: Color(UIColor.NeoPop.State.success300))
+                    }
+                }
             }
             .background(Color.ctSurface)
             .clipShape(RoundedRectangle(cornerRadius: 14))
