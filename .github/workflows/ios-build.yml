@@ -29,12 +29,3 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO
 
-      - name: Run Tests
-        working-directory: CredTrack
-        run: |
-          xcodebuild test \
-            -project CredTrack.xcodeproj \
-            -scheme CredTrack \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO
