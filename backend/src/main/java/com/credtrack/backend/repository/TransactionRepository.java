@@ -26,7 +26,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
           AND (:startDate IS NULL OR t.transactionDate >= :startDate)
           AND (:endDate IS NULL OR t.transactionDate <= :endDate)
           AND (:type IS NULL OR t.transactionType = :type)
-          AND (:search IS NULL OR LOWER(t.merchantName) LIKE LOWER(CONCAT('%', :search, '%')))
+          AND (:search IS NULL OR LOWER(t.merchantName) LIKE CONCAT('%', LOWER(CAST(:search AS string)), '%'))
         ORDER BY t.transactionDate DESC
         """)
     Page<Transaction> findFiltered(
@@ -68,4 +68,16 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("userId") String userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
+
+    @Query("""
+        SELECT t FROM Transaction t
+        WHERE t.user.id = :userId
+          AND t.userCard.id = :userCardId
+          AND t.transactionDate > :since
+        ORDER BY t.transactionDate DESC
+        """)
+    List<Transaction> findUnbilledTransactions(
+            @Param("userId") String userId,
+            @Param("userCardId") Long userCardId,
+            @Param("since") LocalDate since);
 }
