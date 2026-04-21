@@ -50,7 +50,8 @@ public class TransactionInternalService {
         UserCard userCard = null;
         if (req.getCardLastFour() != null) {
             userCard = userCardRepo.findByUser_IdOrderByAddedAtDesc(user.getId()).stream()
-                    .filter(uc -> req.getCardLastFour().equals(uc.getLastFour()) && Boolean.TRUE.equals(uc.getIsActive()))
+                    .filter(uc -> req.getCardLastFour().equals(uc.getLastFour())
+                            && !Boolean.FALSE.equals(uc.getIsActive()))
                     .findFirst()
                     .orElse(null);
         }

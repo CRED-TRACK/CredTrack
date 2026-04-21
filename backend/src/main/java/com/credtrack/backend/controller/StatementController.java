@@ -2,11 +2,13 @@ package com.credtrack.backend.controller;
 
 import com.credtrack.backend.dto.CardStatementResponse;
 import com.credtrack.backend.dto.MarkPaidRequest;
+import com.credtrack.backend.dto.UnbilledSpendResponse;
 import com.credtrack.backend.entity.CardStatement;
 import com.credtrack.backend.entity.UserCard;
 import com.credtrack.backend.repository.CardStatementRepository;
 import com.credtrack.backend.repository.UserCardRepository;
 import com.credtrack.backend.service.FirebaseService;
+import com.credtrack.backend.service.UnbilledSpendService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,17 +30,34 @@ public class StatementController {
     private final CardStatementRepository statementRepo;
     private final UserCardRepository      userCardRepo;
     private final FirebaseService         firebaseService;
+    private final UnbilledSpendService    unbilledSpendService;
 
     public StatementController(CardStatementRepository statementRepo,
                                UserCardRepository userCardRepo,
-                               FirebaseService firebaseService) {
-        this.statementRepo  = statementRepo;
-        this.userCardRepo   = userCardRepo;
-        this.firebaseService = firebaseService;
+                               FirebaseService firebaseService,
+                               UnbilledSpendService unbilledSpendService) {
+        this.statementRepo       = statementRepo;
+        this.userCardRepo        = userCardRepo;
+        this.firebaseService     = firebaseService;
+        this.unbilledSpendService = unbilledSpendService;
     }
 
     private String resolveUid(String authHeader) {
         return firebaseService.verifyToken(authHeader.replace("Bearer ", "")).getUid();
+    }
+
+    /**
+     * GET /statements/unbilled?cardId={id}
+     * Returns all transactions since the last statement closing date (open billing period).
+     * unbilledTotal is the running spend not yet captured in a statement.
+     */
+    @GetMapping("/unbilled")
+    public ResponseEntity<UnbilledSpendResponse> unbilled(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam Long cardId) {
+
+        String uid = resolveUid(authHeader);
+        return ResponseEntity.ok(unbilledSpendService.computeUnbilled(uid, cardId));
     }
 
     /**

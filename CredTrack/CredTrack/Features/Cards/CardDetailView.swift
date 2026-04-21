@@ -10,13 +10,22 @@ struct CardDetailView: View {
     @State private var totalStatements:        Int = 0
     @State private var statementsLoading       = false
     @State private var navigateToAllStatements = false
+    @State private var navigateToTransactions  = false
+    @State private var transactionCount:       Int = 0
+    @State private var unbilledSpend:          UnbilledSpendDTO? = nil
 
     private var model: CardModel { card.toCardModel() }
 
     // MARK: - Utilization
 
+    /// Unbilled spend to show in SPENT tile — uses live transaction total when available.
+    private var spentAmount: Double? {
+        if let u = unbilledSpend?.unbilledTotal, u > 0 { return u }
+        return card.currentBalance
+    }
+
     private var utilization: Double? {
-        guard let balance = card.currentBalance,
+        guard let balance = spentAmount,
               let limit   = card.creditLimit, limit > 0 else { return nil }
         return min((balance / limit) * 100, 100)
     }
@@ -69,6 +78,7 @@ struct CardDetailView: View {
                     Spacer().frame(height: 32)
                     paymentSection
                     statementsSection
+                    transactionsEntrySection
                     infoSection
                     Spacer().frame(height: 56)
                 }
@@ -92,11 +102,18 @@ struct CardDetailView: View {
         )
         .navigationBarHidden(true)
         .task {
+            async let stmtPage    = APIClient.shared.fetchStatements(cardId: card.id, size: 5)
+            async let txPage      = APIClient.shared.fetchTransactions(cardId: card.id, size: 1)
+            async let unbilledReq = APIClient.shared.fetchUnbilledSpend(cardId: card.id)
             statementsLoading = true
-            if let page = try? await APIClient.shared.fetchStatements(cardId: card.id, size: 5) {
-                statements      = page.content
-                totalStatements = page.totalElements
+            if let s = try? await stmtPage {
+                statements      = s.content
+                totalStatements = s.totalElements
             }
+            if let t = try? await txPage {
+                transactionCount = t.totalElements
+            }
+            unbilledSpend = try? await unbilledReq
             statementsLoading = false
         }
     }
@@ -211,22 +228,82 @@ struct CardDetailView: View {
                 value: card.creditLimit.map { formatCurrency($0) } ?? "—",
                 label: "LIMIT"
             )
-            .frame(maxWidth: .infinity, minHeight: 80)
+            .frame(maxWidth: .infinity)
 
             DetailStatTile(
-                value: card.currentBalance.map { formatCurrency($0) } ?? "—",
-                label: "SPENT"
+                value: spentAmount.map { formatCurrency($0) } ?? "—",
+                label: "UNBILLED",
+                sublabel: unbilledSpend?.since.map { "since \(shortDate($0))" }
             )
-            .frame(maxWidth: .infinity, minHeight: 80)
+            .frame(maxWidth: .infinity)
 
             DetailStatTile(
                 value: utilization.map { String(format: "%.1f%%", $0) } ?? "—",
                 label: "UTILIZED",
                 valueColor: utilization != nil ? UIColor(utilizationColor) : nil
             )
-            .frame(maxWidth: .infinity, minHeight: 80)
+            .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 20)
+    }
+
+    // MARK: - Transactions entry section
+
+    private var transactionsEntrySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Hidden NavigationLink
+            NavigationLink(
+                destination: TransactionsListView(card: card),
+                isActive: $navigateToTransactions
+            ) { EmptyView() }
+                .hidden()
+
+            Text("TRANSACTIONS")
+                .font(.ctMicro)
+                .foregroundColor(.ctTextSecondary)
+                .padding(.leading, 4)
+                .padding(.horizontal, 20)
+
+            Button {
+                navigateToTransactions = true
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "list.bullet.rectangle")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.ctTextPrimary)
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(Color.NeoPop.Black.c200))
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("View Transactions")
+                            .font(.ctBody)
+                            .foregroundColor(.ctTextPrimary)
+                        Text(transactionCount > 0
+                             ? "\(transactionCount) transaction\(transactionCount == 1 ? "" : "s") synced"
+                             : "No transactions yet")
+                            .font(.ctMicro)
+                            .foregroundColor(.ctTextSecondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.ctTextSecondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 13)
+                .background(Color.ctSurface)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(Color.NeoPop.Black.c200, lineWidth: 1)
+                )
+                .padding(.horizontal, 20)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.bottom, 24)
     }
 
     // MARK: - Card info section
@@ -473,6 +550,17 @@ struct CardDetailView: View {
         display.timeStyle = .none
         return display.string(from: date)
     }
+
+    /// Short date for the stat tile sublabel — e.g. "Mar 21"
+    private func shortDate(_ iso: String) -> String {
+        let parser = DateFormatter()
+        parser.dateFormat = "yyyy-MM-dd"
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        guard let date = parser.date(from: iso) else { return iso }
+        let display = DateFormatter()
+        display.dateFormat = "MMM d"
+        return display.string(from: date)
+    }
 }
 
 // MARK: - Detail Info Row
@@ -578,10 +666,11 @@ private struct StatementRow: View {
 private struct DetailStatTile: View {
     let value:      String
     let label:      String
+    var sublabel:   String? = nil
     var valueColor: UIColor? = nil
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 3) {
             Text(value)
                 .font(.system(.title3, design: .default).weight(.bold))
                 .foregroundColor(valueColor != nil ? Color(uiColor: valueColor!) : .ctTextPrimary)
@@ -590,9 +679,16 @@ private struct DetailStatTile: View {
             Text(label)
                 .font(.ctMicro)
                 .foregroundColor(.ctTextSecondary)
+            // Reserve fixed space for sublabel so all tiles stay the same height
+            Text(sublabel ?? " ")
+                .font(.system(size: 9, weight: .regular))
+                .foregroundColor(sublabel != nil
+                    ? .ctTextSecondary.opacity(0.6)
+                    : .clear)
+                .lineLimit(1)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, 14)
         .background(Color.ctSurface)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(

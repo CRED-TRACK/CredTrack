@@ -57,6 +57,14 @@ public class UserCard {
     @Column(name = "gmail_scan_complete", nullable = false)
     private Boolean gmailScanComplete = false;
 
+    /**
+     * Last time the AI agent ran a transaction email scan for this card.
+     * Null = never scanned. Used as the incremental cursor: agent skips this
+     * card if (now - lastTransactionScanAt) < configured scan interval.
+     */
+    @Column(name = "last_transaction_scan_at")
+    private LocalDateTime lastTransactionScanAt;
+
     @Column(name = "added_at", nullable = false, updatable = false)
     private LocalDateTime addedAt;
 

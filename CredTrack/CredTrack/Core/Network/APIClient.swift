@@ -119,6 +119,27 @@ struct SpringPage<T: Decodable>: Decodable {
     let totalElements: Int
 }
 
+struct TransactionDTO: Decodable, Identifiable {
+    let id:               Int
+    let merchantName:     String?
+    let merchantCategory: String?
+    let amount:           Double?
+    let currency:         String?
+    let transactionDate:  String?   // "YYYY-MM-DD"
+    let transactionType:  String?   // "DEBIT" or "CREDIT"
+    let status:           String?
+    let bankKey:          String?
+    let cardLastFour:     String?
+    let description:      String?
+}
+
+struct UnbilledSpendDTO: Decodable {
+    let userCardId:    Int?
+    let since:         String?   // "YYYY-MM-DD" — last statement closing date, nil if no statements
+    let unbilledTotal: Double?
+    let transactions:  [TransactionDTO]?
+}
+
 // MARK: - Errors
 
 enum APIError: LocalizedError {
@@ -210,6 +231,20 @@ final class APIClient {
         let token = try await currentToken()
         let data  = try await post("/statements/\(statementId)/mark-paid", body: body, bearerToken: token)
         return try decoder.decode(CardStatementDTO.self, from: data)
+    }
+
+    // MARK: Transactions
+
+    func fetchTransactions(cardId: Int, page: Int = 0, size: Int = 20) async throws -> SpringPage<TransactionDTO> {
+        let token = try await currentToken()
+        let data  = try await get("/transactions?cardId=\(cardId)&page=\(page)&size=\(size)", bearerToken: token)
+        return try decoder.decode(SpringPage<TransactionDTO>.self, from: data)
+    }
+
+    func fetchUnbilledSpend(cardId: Int) async throws -> UnbilledSpendDTO {
+        let token = try await currentToken()
+        let data  = try await get("/statements/unbilled?cardId=\(cardId)", bearerToken: token)
+        return try decoder.decode(UnbilledSpendDTO.self, from: data)
     }
 
     // MARK: Gmail

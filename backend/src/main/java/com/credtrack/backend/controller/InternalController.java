@@ -102,6 +102,9 @@ public class InternalController {
                                                 .map(s -> s.getStatementDate() != null
                                                         ? s.getStatementDate().toString() : null)
                                                 .orElse(null));
+                                        card.put("lastTransactionScanAt",
+                                                uc.getLastTransactionScanAt() != null
+                                                        ? uc.getLastTransactionScanAt().toString() : null);
                                         return card;
                                     })
                                     .toList();
@@ -267,6 +270,24 @@ public class InternalController {
         card.setGmailScanComplete(true);
         userCardRepo.save(card);
         log.info("Init scan marked complete for card {}", cardId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * PATCH /internal/cards/{cardId}/transaction-scan
+     * AI agent calls this after completing a transaction email scan for a card.
+     * Sets lastTransactionScanAt = now so the coordinator knows when the last scan ran.
+     * The scan interval (default 24h, configurable via env) determines when to run next.
+     */
+    @PatchMapping("/cards/{cardId}/transaction-scan")
+    @Transactional
+    public ResponseEntity<Void> markTransactionScan(@PathVariable Long cardId) {
+        UserCard card = userCardRepo.findById(cardId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Card not found: " + cardId));
+        card.setLastTransactionScanAt(java.time.LocalDateTime.now());
+        userCardRepo.save(card);
+        log.info("Transaction scan timestamp updated for card {}", cardId);
         return ResponseEntity.ok().build();
     }
 }
