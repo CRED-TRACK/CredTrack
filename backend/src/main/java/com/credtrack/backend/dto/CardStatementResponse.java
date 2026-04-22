@@ -25,6 +25,8 @@ public class CardStatementResponse {
     private BigDecimal paidAmount;
     private LocalDate  paymentDate;
     private LocalDateTime createdAt;
+    private Boolean   hasPdf;
+    private String    pdfStatus;
 
     public static CardStatementResponse from(CardStatement s) {
         return CardStatementResponse.builder()
@@ -42,6 +44,8 @@ public class CardStatementResponse {
                 .paidAmount(s.getPaidAmount())
                 .paymentDate(s.getPaymentDate())
                 .createdAt(s.getCreatedAt())
+                .hasPdf(s.getFirebasePath() != null)
+                .pdfStatus(s.getPdfStatus())
                 .build();
     }
 }

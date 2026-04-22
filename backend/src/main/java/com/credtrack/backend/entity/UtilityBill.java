@@ -64,6 +64,12 @@ public class UtilityBill {
     @Column(name = "total_paid", precision = 12, scale = 2)
     private BigDecimal totalPaid = BigDecimal.ZERO;
 
+    @Column(name = "firebase_path", columnDefinition = "TEXT")
+    private String firebasePath;
+
+    @Column(name = "pdf_status", length = 20)
+    private String pdfStatus;   // PENDING | EXTRACTED | FAILED | null
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
