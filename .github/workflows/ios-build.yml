@@ -17,7 +17,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+        run: |
+          if [ -d "/Applications/Xcode_16.2.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+          fi
+          sudo xcodebuild -license accept || true
+          xcodebuild -version
 
       - name: Build
         working-directory: CredTrack
@@ -25,8 +30,7 @@ jobs:
           xcodebuild clean build \
             -project CredTrack.xcodeproj \
             -scheme CredTrack \
-            -sdk iphonesimulator \
-            ONLY_ACTIVE_ARCH=NO \
+            -destination 'generic/platform=iOS' \
             CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO
-
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
