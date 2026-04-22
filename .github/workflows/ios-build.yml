@@ -16,8 +16,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+      - name: Accept Xcode license
+        run: sudo xcodebuild -license accept || true
 
       - name: Build
         working-directory: CredTrack
@@ -25,7 +25,7 @@ jobs:
           xcodebuild clean build \
             -project CredTrack.xcodeproj \
             -scheme CredTrack \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination 'generic/platform=iOS' \
             CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO
-
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO

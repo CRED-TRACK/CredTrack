@@ -140,6 +140,35 @@ struct UnbilledSpendDTO: Decodable {
     let transactions:  [TransactionDTO]?
 }
 
+// MARK: - Utility DTOs
+
+struct UtilityAccountDTO: Decodable, Identifiable, Hashable {
+    let id:               Int
+    let billerName:       String
+    let accountLastFour:  String
+    let createdAt:        String?
+}
+
+struct UtilityPaymentDTO: Decodable, Identifiable {
+    let id:            Int
+    let paymentAmount: Double?
+    let paymentDate:   String?   // "YYYY-MM-DD"
+}
+
+struct UtilityBillDTO: Decodable, Identifiable {
+    let id:                  Int
+    let billerName:          String
+    let accountLastFour:     String
+    let amountDue:           Double?
+    let dueDate:             String?   // "YYYY-MM-DD"
+    let billDate:            String?   // "YYYY-MM-DD"
+    let billingPeriodStart:  String?   // "YYYY-MM-DD"
+    let billingPeriodEnd:    String?   // "YYYY-MM-DD"
+    let isPaid:              Bool?
+    let totalPaid:           Double?
+    let payments:            [UtilityPaymentDTO]?
+}
+
 // MARK: - Errors
 
 enum APIError: LocalizedError {
@@ -245,6 +274,68 @@ final class APIClient {
         let token = try await currentToken()
         let data  = try await get("/statements/unbilled?cardId=\(cardId)", bearerToken: token)
         return try decoder.decode(UnbilledSpendDTO.self, from: data)
+    }
+
+    // MARK: Utility Accounts
+
+    func fetchUtilityAccounts() async throws -> [UtilityAccountDTO] {
+        let token = try await currentToken()
+        let data  = try await get("/utility-accounts", bearerToken: token)
+        return try decoder.decode([UtilityAccountDTO].self, from: data)
+    }
+
+    struct AddUtilityAccountRequest: Encodable {
+        let billerName:      String
+        let accountLastFour: String
+    }
+
+    @discardableResult
+    func addUtilityAccount(billerName: String, accountLastFour: String) async throws -> UtilityAccountDTO {
+        let token = try await currentToken()
+        let body  = try encoder.encode(AddUtilityAccountRequest(billerName: billerName,
+                                                                 accountLastFour: accountLastFour))
+        let data  = try await post("/utility-accounts", body: body, bearerToken: token)
+        return try decoder.decode(UtilityAccountDTO.self, from: data)
+    }
+
+    func deleteUtilityAccount(id: Int) async throws {
+        let token = try await currentToken()
+        guard let url = URL(string: "\(APIConfig.baseURL)/utility-accounts/\(id)") else {
+            throw APIError.invalidURL
+        }
+        var request        = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (_, response)  = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse,
+              (200...299).contains(http.statusCode) else { return }
+    }
+
+    // MARK: Utility Bills
+
+    func markUtilityBillPaid(billId: Int, paymentDate: String, paidAmount: Double?) async throws -> UtilityBillDTO {
+        struct Body: Encodable { let paymentDate: String; let paidAmount: Double? }
+        let body  = try encoder.encode(Body(paymentDate: paymentDate, paidAmount: paidAmount))
+        let token = try await currentToken()
+        let data  = try await post("/utility-bills/\(billId)/mark-paid", body: body, bearerToken: token)
+        return try decoder.decode(UtilityBillDTO.self, from: data)
+    }
+
+    func fetchUtilityBills(billerName: String? = nil,
+                           accountLastFour: String? = nil) async throws -> [UtilityBillDTO] {
+        let token = try await currentToken()
+        var path  = "/utility-bills"
+        if let b = billerName, !b.isEmpty,
+           let encoded = b.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path += "?billerName=\(encoded)"
+        }
+        let data = try await get(path, bearerToken: token)
+        let all  = try decoder.decode([UtilityBillDTO].self, from: data)
+        // Filter by accountLastFour client-side (backend only filters by billerName)
+        if let last4 = accountLastFour, !last4.isEmpty {
+            return all.filter { $0.accountLastFour == last4 }
+        }
+        return all
     }
 
     // MARK: Gmail

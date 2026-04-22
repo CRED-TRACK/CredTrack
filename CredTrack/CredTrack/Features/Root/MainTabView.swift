@@ -33,10 +33,10 @@ struct MainTabView: View {
                 }
                 .tag(0)
 
-            PlaceholderTab(title: "Analytics")
+            UtilityListView()
                 .tabItem {
-                    Image(systemName: selectedTab == 1 ? "chart.bar.fill" : "chart.bar")
-                    Text("Analytics")
+                    Image(systemName: selectedTab == 1 ? "bolt.fill" : "bolt")
+                    Text("Utility")
                 }
                 .tag(1)
 
