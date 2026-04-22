@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct StatementDetailView: View {
     @State var statement: CardStatementDTO
@@ -6,9 +7,16 @@ struct StatementDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var showMarkPaidSheet = false
-    @State private var isMarkingPaid     = false
+    @State private var showMarkPaidSheet  = false
+    @State private var isMarkingPaid      = false
     @State private var markPaidError: String? = nil
+    @State private var showDocumentPicker = false
+    @State private var isUploadingPdf     = false
+    @State private var uploadError: String? = nil
+    @State private var uploadSuccess       = false
+    @State private var showPdfViewer      = false
+    @State private var pdfViewerData: Data? = nil
+    @State private var isLoadingPdf       = false
 
     // MARK: - Body
 
@@ -23,6 +31,7 @@ struct StatementDetailView: View {
                     detailsSection
                     Spacer().frame(height: 32)
                     actionButtons
+                    uploadPdfSection
                     Spacer().frame(height: 48)
                 }
             }
@@ -44,6 +53,16 @@ struct StatementDetailView: View {
             .ignoresSafeArea()
         )
         .navigationBarHidden(true)
+        .sheet(isPresented: $showDocumentPicker) {
+            StatementPdfPicker { pdfData in
+                Task { await uploadPdf(data: pdfData) }
+            }
+        }
+        .sheet(isPresented: $showPdfViewer) {
+            if let data = pdfViewerData {
+                StatementPdfViewerSheet(data: data, filename: pdfFilename)
+            }
+        }
         .sheet(isPresented: $showMarkPaidSheet) {
             MarkPaidSheet(statement: statement) { date, amount in
                 Task { await markPaid(date: date, amount: amount) }
@@ -234,7 +253,162 @@ struct StatementDetailView: View {
         isMarkingPaid = false
     }
 
+    // MARK: - Upload PDF
+
+    @ViewBuilder
+    private var uploadPdfSection: some View {
+        VStack(spacing: 10) {
+
+            // ── Already-uploaded card ─────────────────────────────────────────
+            if statement.hasPdf == true {
+                VStack(spacing: 0) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "doc.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(pdfStatusColor)
+                            .frame(width: 34, height: 34)
+                            .background(Circle().fill(Color.NeoPop.Black.c200))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Statement PDF")
+                                .font(.ctMicro)
+                                .foregroundColor(.ctTextSecondary)
+                            Text(pdfStatusLabel)
+                                .font(.ctBody)
+                                .foregroundColor(pdfStatusColor)
+                        }
+                        Spacer()
+
+                        // View button
+                        Button {
+                            Task { await viewPdf() }
+                        } label: {
+                            if isLoadingPdf {
+                                ProgressView()
+                                    .tint(.ctTextPrimary)
+                            } else {
+                                Label("View", systemImage: "doc.fill")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.ctTextPrimary)
+                            }
+                        }
+                        .disabled(isLoadingPdf)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 13)
+                }
+                .background(Color.ctSurface)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(pdfStatusColor.opacity(0.4), lineWidth: 1)
+                )
+                .padding(.horizontal, 20)
+                .transition(.opacity.combined(with: .scale(scale: 0.97)))
+            }
+
+            // ── Success flash ─────────────────────────────────────────────────
+            if uploadSuccess {
+                Label("PDF uploaded successfully", systemImage: "checkmark.circle.fill")
+                    .font(.ctMicro)
+                    .foregroundColor(Color(UIColor.NeoPop.State.success300))
+                    .padding(.horizontal, 24)
+                    .transition(.opacity)
+            }
+
+            // ── Error ─────────────────────────────────────────────────────────
+            if let err = uploadError {
+                Label(err, systemImage: "exclamationmark.triangle.fill")
+                    .font(.ctMicro)
+                    .foregroundColor(Color(UIColor.NeoPop.State.error300))
+                    .padding(.horizontal, 24)
+                    .transition(.opacity)
+            }
+
+            // ── Upload / Replace button ───────────────────────────────────────
+            NeoPopElevatedButton(
+                title:          uploadButtonTitle,
+                faceColor:      .white,
+                labelColor:     .popDeepBlack,
+                superViewColor: .popDeepBlack,
+                fontSize:       15
+            ) {
+                uploadError  = nil
+                uploadSuccess = false
+                showDocumentPicker = true
+            }
+            .frame(height: 56)
+            .padding(.horizontal, 20)
+            .disabled(isUploadingPdf)
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: statement.hasPdf)
+        .animation(.easeInOut(duration: 0.3), value: uploadSuccess)
+        .animation(.easeInOut(duration: 0.3), value: uploadError)
+        .padding(.top, 12)
+    }
+
+    private var uploadButtonTitle: String {
+        if isUploadingPdf { return "Uploading…" }
+        return statement.hasPdf == true ? "Replace PDF" : "Upload Statement PDF"
+    }
+
+    private var pdfStatusLabel: String {
+        switch statement.pdfStatus {
+        case "PENDING":   return "Processing…"
+        case "EXTRACTED": return "Analysed"
+        case "FAILED":    return "Processing failed"
+        default:          return "Uploaded"
+        }
+    }
+
+    private var pdfStatusColor: Color {
+        switch statement.pdfStatus {
+        case "PENDING":   return Color(UIColor.NeoPop.State.warning300)
+        case "EXTRACTED": return Color(UIColor.NeoPop.State.success300)
+        case "FAILED":    return Color(UIColor.NeoPop.State.error300)
+        default:          return .ctTextSecondary
+        }
+    }
+
+    private func viewPdf() async {
+        isLoadingPdf = true
+        do {
+            let data = try await APIClient.shared.downloadStatementPdf(statementId: statement.id)
+            pdfViewerData = data
+            showPdfViewer = true
+        } catch {
+            uploadError = "Could not load PDF. Try again."
+        }
+        isLoadingPdf = false
+    }
+
+    private func uploadPdf(data: Data) async {
+        isUploadingPdf = true
+        uploadError    = nil
+        uploadSuccess  = false
+        do {
+            let updated = try await APIClient.shared.uploadStatementPdf(
+                statementId: statement.id,
+                pdfData:     data
+            )
+            withAnimation { statement = updated }
+            uploadSuccess = true
+            // Auto-dismiss success message after 3 seconds
+            try? await Task.sleep(for: .seconds(3))
+            withAnimation { uploadSuccess = false }
+        } catch {
+            uploadError = "Upload failed. Please try again."
+        }
+        isUploadingPdf = false
+    }
+
     // MARK: - Helpers
+
+    private var pdfFilename: String {
+        let bank = card.issuerName.replacingOccurrences(of: " ", with: "_")
+        let month = monthYear.replacingOccurrences(of: " ", with: "_")
+        return "\(bank)_\(month)_statement.pdf"
+    }
 
     private var divider: some View {
         Rectangle()
@@ -420,6 +594,37 @@ private struct MarkPaidSheet: View {
             if let bal = statement.statementBalance {
                 amountText = String(format: "%.2f", bal)
             }
+        }
+    }
+}
+
+
+// MARK: - Statement PDF Picker
+
+private struct StatementPdfPicker: UIViewControllerRepresentable {
+    let onPicked: (Data) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onPicked: onPicked) }
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.pdf])
+        picker.delegate = context.coordinator
+        picker.allowsMultipleSelection = false
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPicked: (Data) -> Void
+        init(onPicked: @escaping (Data) -> Void) { self.onPicked = onPicked }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first,
+                  url.startAccessingSecurityScopedResource(),
+                  let data = try? Data(contentsOf: url) else { return }
+            url.stopAccessingSecurityScopedResource()
+            onPicked(data)
         }
     }
 }

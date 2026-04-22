@@ -8,17 +8,22 @@ import com.credtrack.backend.entity.UserCard;
 import com.credtrack.backend.repository.CardStatementRepository;
 import com.credtrack.backend.repository.UserCardRepository;
 import com.credtrack.backend.service.FirebaseService;
+import com.credtrack.backend.service.FirebaseStorageService;
 import com.credtrack.backend.service.UnbilledSpendService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * iOS-facing statement endpoints — Firebase JWT required.
@@ -30,15 +35,18 @@ public class StatementController {
     private final CardStatementRepository statementRepo;
     private final UserCardRepository      userCardRepo;
     private final FirebaseService         firebaseService;
+    private final FirebaseStorageService  storageService;
     private final UnbilledSpendService    unbilledSpendService;
 
     public StatementController(CardStatementRepository statementRepo,
                                UserCardRepository userCardRepo,
                                FirebaseService firebaseService,
+                               FirebaseStorageService storageService,
                                UnbilledSpendService unbilledSpendService) {
         this.statementRepo       = statementRepo;
         this.userCardRepo        = userCardRepo;
         this.firebaseService     = firebaseService;
+        this.storageService      = storageService;
         this.unbilledSpendService = unbilledSpendService;
     }
 
@@ -140,5 +148,71 @@ public class StatementController {
         }
 
         return ResponseEntity.ok(CardStatementResponse.from(stmt));
+    }
+
+    /**
+     * POST /statements/{id}/upload-pdf
+     * Attaches a PDF to an existing statement. Uploads to Firebase Storage and
+     * sets pdfStatus=PENDING on the existing row — no new row is created.
+     * The AI agent will later extract the text and update the row.
+     */
+    @PostMapping("/{id}/upload-pdf")
+    @Transactional
+    public ResponseEntity<CardStatementResponse> uploadPdf(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+
+        String uid = resolveUid(authHeader);
+
+        CardStatement stmt = statementRepo.findByIdAndUser_Id(id, uid)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Statement not found"));
+
+        if (file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is empty");
+        }
+
+        Long cardId = stmt.getUserCard() != null ? stmt.getUserCard().getId() : 0L;
+        String uuid     = UUID.randomUUID().toString();
+        String filename = uuid + ".pdf";
+
+        try {
+            String firebasePath = storageService.uploadStatementPdf(uid, cardId, filename, file.getBytes());
+            stmt.setFirebasePath(firebasePath);
+            stmt.setPdfStatus("PENDING");
+            return ResponseEntity.ok(CardStatementResponse.from(statementRepo.save(stmt)));
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Upload failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /statements/{id}/pdf
+     * Proxies the statement PDF through the backend so the iOS client can download it
+     * without needing direct Firebase Storage access.
+     */
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> downloadPdf(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id) {
+
+        String uid = resolveUid(authHeader);
+
+        CardStatement stmt = statementRepo.findByIdAndUser_Id(id, uid)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Statement not found"));
+
+        if (stmt.getFirebasePath() == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No PDF attached to this statement");
+        }
+
+        byte[] bytes = storageService.downloadStatementPdf(stmt.getFirebasePath());
+        if (bytes == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "PDF not found in storage");
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("inline", "statement.pdf");
+        return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
     }
 }

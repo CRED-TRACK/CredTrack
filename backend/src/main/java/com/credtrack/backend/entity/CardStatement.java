@@ -73,6 +73,17 @@ public class CardStatement {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    // ── PDF upload fields (null for Gmail-sourced statements) ─────────────────
+    @Column(name = "firebase_path", columnDefinition = "TEXT")
+    private String firebasePath;
+
+    @Column(name = "extracted_text", columnDefinition = "TEXT")
+    private String extractedText;
+
+    // PENDING | EXTRACTED | FAILED | null (Gmail-sourced rows never set this)
+    @Column(name = "pdf_status", length = 20)
+    private String pdfStatus;
+
     @PrePersist
     private void prePersist() {
         if (createdAt == null) createdAt = LocalDateTime.now();

@@ -112,6 +112,8 @@ struct CardStatementDTO: Decodable, Identifiable {
     let isPaid:           Bool?
     let paidAmount:       Double?
     let paymentDate:      String?   // "YYYY-MM-DD"
+    let hasPdf:           Bool?
+    let pdfStatus:        String?   // "PENDING" | "EXTRACTED" | "FAILED" | nil
 }
 
 struct SpringPage<T: Decodable>: Decodable {
@@ -166,6 +168,8 @@ struct UtilityBillDTO: Decodable, Identifiable {
     let billingPeriodEnd:    String?   // "YYYY-MM-DD"
     let isPaid:              Bool?
     let totalPaid:           Double?
+    let hasPdf:              Bool?
+    let pdfStatus:           String?   // "PENDING" | "EXTRACTED" | "FAILED" | nil
     let payments:            [UtilityPaymentDTO]?
 }
 
@@ -274,6 +278,76 @@ final class APIClient {
         let token = try await currentToken()
         let data  = try await get("/statements/unbilled?cardId=\(cardId)", bearerToken: token)
         return try decoder.decode(UnbilledSpendDTO.self, from: data)
+    }
+
+    @discardableResult
+    func uploadStatementPdf(statementId: Int, pdfData: Data) async throws -> CardStatementDTO {
+        let token    = try await currentToken()
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var body     = Data()
+
+        let append: (String) -> Void = { body.append(Data($0.utf8)) }
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"file\"; filename=\"statement.pdf\"\r\n")
+        append("Content-Type: application/pdf\r\n\r\n")
+        body.append(pdfData)
+        append("\r\n--\(boundary)--\r\n")
+
+        guard let url = URL(string: "\(APIConfig.baseURL)/statements/\(statementId)/upload-pdf") else {
+            throw APIError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = body
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw APIError.serverError(0) }
+        guard (200...299).contains(http.statusCode) else {
+            throw http.statusCode == 401 ? APIError.unauthorized : APIError.serverError(http.statusCode)
+        }
+        return try decoder.decode(CardStatementDTO.self, from: data)
+    }
+
+    func downloadStatementPdf(statementId: Int) async throws -> Data {
+        let token = try await currentToken()
+        return try await get("/statements/\(statementId)/pdf", bearerToken: token)
+    }
+
+    @discardableResult
+    func uploadUtilityBillPdf(billId: Int, pdfData: Data) async throws -> UtilityBillDTO {
+        let token    = try await currentToken()
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var body     = Data()
+
+        let append: (String) -> Void = { body.append(Data($0.utf8)) }
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"file\"; filename=\"bill.pdf\"\r\n")
+        append("Content-Type: application/pdf\r\n\r\n")
+        body.append(pdfData)
+        append("\r\n--\(boundary)--\r\n")
+
+        guard let url = URL(string: "\(APIConfig.baseURL)/utility-bills/\(billId)/upload-pdf") else {
+            throw APIError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = body
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw APIError.serverError(0) }
+        guard (200...299).contains(http.statusCode) else {
+            throw http.statusCode == 401 ? APIError.unauthorized : APIError.serverError(http.statusCode)
+        }
+        return try decoder.decode(UtilityBillDTO.self, from: data)
+    }
+
+    func downloadUtilityBillPdf(billId: Int) async throws -> Data {
+        let token = try await currentToken()
+        return try await get("/utility-bills/\(billId)/pdf", bearerToken: token)
     }
 
     // MARK: Utility Accounts

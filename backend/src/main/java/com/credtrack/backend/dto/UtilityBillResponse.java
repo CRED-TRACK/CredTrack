@@ -24,6 +24,8 @@ public class UtilityBillResponse {
     private Boolean       isPaid;
     private BigDecimal    totalPaid;
     private LocalDateTime createdAt;
+    private Boolean       hasPdf;
+    private String        pdfStatus;
     private List<PaymentSummary> payments;
 
     @Data @Builder
@@ -46,6 +48,8 @@ public class UtilityBillResponse {
                 .isPaid(b.getIsPaid())
                 .totalPaid(b.getTotalPaid())
                 .createdAt(b.getCreatedAt())
+                .hasPdf(b.getFirebasePath() != null)
+                .pdfStatus(b.getPdfStatus())
                 .payments(payments.stream()
                         .map(p -> PaymentSummary.builder()
                                 .id(p.getId())
