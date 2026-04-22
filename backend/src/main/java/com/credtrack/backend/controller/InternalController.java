@@ -12,7 +12,7 @@ import com.credtrack.backend.dto.UtilityBillResponse;
 import com.credtrack.backend.dto.UtilityPaymentCreateRequest;
 import com.credtrack.backend.entity.GmailCredential;
 import com.credtrack.backend.entity.UserCard;
-import UserUtilityAccount;
+import com.credtrack.backend.entity.UserUtilityAccount;
 import com.credtrack.backend.repository.CardStatementRepository;
 import com.credtrack.backend.repository.GmailCredentialRepository;
 import com.credtrack.backend.repository.UserCardRepository;

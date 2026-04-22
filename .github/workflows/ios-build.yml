@@ -25,7 +25,7 @@ jobs:
           xcodebuild clean build \
             -project CredTrack.xcodeproj \
             -scheme CredTrack \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination 'generic/platform=iOS Simulator' \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO
 
