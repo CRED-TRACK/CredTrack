@@ -80,4 +80,23 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("userId") String userId,
             @Param("userCardId") Long userCardId,
             @Param("since") LocalDate since);
+
+    /** Hard-delete all linked transactions for a card — used when a card is removed. */
+    @org.springframework.transaction.annotation.Transactional
+    void deleteByUserCard_Id(Long userCardId);
+
+    /**
+     * Hard-delete orphaned transactions (user_card_id IS NULL) that belong to this card
+     * by matching userId + lastFour + bankKey. These have no direct FK to UserCard but
+     * their gmail_message_id would block re-import if the card is re-added.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query(
+        "DELETE FROM Transaction t WHERE t.user.id = :userId AND t.cardLastFour = :lastFour AND t.bankKey = :bankKey AND t.userCard IS NULL"
+    )
+    int deleteOrphansByUser_IdAndCardLastFourAndBankKey(
+            @org.springframework.data.repository.query.Param("userId") String userId,
+            @org.springframework.data.repository.query.Param("lastFour") String lastFour,
+            @org.springframework.data.repository.query.Param("bankKey") String bankKey);
 }

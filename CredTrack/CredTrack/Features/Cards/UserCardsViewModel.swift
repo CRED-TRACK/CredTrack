@@ -28,4 +28,19 @@ final class UserCardsViewModel: ObservableObject {
         state = .idle
         Task { await load() }
     }
+
+    /// Optimistically removes the card from the list immediately so the
+    /// delete animation plays instantly, then calls the API in background.
+    /// If the API fails, reloads the full list to restore correct state.
+    func removeCard(_ card: UserCardDTO) {
+        guard case .loaded(let cards) = state else { return }
+        state = .loaded(cards.filter { $0.id != card.id })
+        Task {
+            do {
+                try await APIClient.shared.deleteUserCard(id: card.id)
+            } catch {
+                reload()
+            }
+        }
+    }
 }

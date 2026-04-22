@@ -298,17 +298,14 @@ final class APIClient {
         return try decoder.decode(UtilityAccountDTO.self, from: data)
     }
 
+    func deleteUserCard(id: Int) async throws {
+        let token = try await currentToken()
+        try await delete("/user-cards/\(id)", bearerToken: token)
+    }
+
     func deleteUtilityAccount(id: Int) async throws {
         let token = try await currentToken()
-        guard let url = URL(string: "\(APIConfig.baseURL)/utility-accounts/\(id)") else {
-            throw APIError.invalidURL
-        }
-        var request        = URLRequest(url: url)
-        request.httpMethod = "DELETE"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let (_, response)  = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse,
-              (200...299).contains(http.statusCode) else { return }
+        try await delete("/utility-accounts/\(id)", bearerToken: token)
     }
 
     // MARK: Utility Bills
@@ -381,6 +378,20 @@ final class APIClient {
             throw http.statusCode == 401 ? APIError.unauthorized : APIError.serverError(http.statusCode)
         }
         return data
+    }
+
+    private func delete(_ path: String, bearerToken: String? = nil) async throws {
+        guard let url = URL(string: "\(APIConfig.baseURL)\(path)") else { throw APIError.invalidURL }
+        var request        = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        if let token = bearerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw APIError.serverError(0) }
+        guard (200...299).contains(http.statusCode) else {
+            throw http.statusCode == 401 ? APIError.unauthorized : APIError.serverError(http.statusCode)
+        }
     }
 
     private func get(_ path: String, bearerToken: String? = nil) async throws -> Data {
