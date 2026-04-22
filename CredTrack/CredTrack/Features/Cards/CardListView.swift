@@ -5,7 +5,7 @@ struct CardListView: View {
     @Binding var selectedTab: Int
     @EnvironmentObject var gmailManager: GmailConnectionManager
     @StateObject private var vm = UserCardsViewModel()
-    @State private var showAddCard = false
+    @State private var showAddCard    = false
     @State private var showGmailPopup = false
 
     var body: some View {
@@ -83,7 +83,7 @@ struct CardListView: View {
         }
     }
 
-    // MARK: - Shared header
+    // MARK: - Header
 
     private func header(count: Int) -> some View {
         HStack(alignment: .center) {

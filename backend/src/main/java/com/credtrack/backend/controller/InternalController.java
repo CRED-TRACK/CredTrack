@@ -7,12 +7,21 @@ import com.credtrack.backend.dto.StatementCreateRequest;
 import com.credtrack.backend.dto.TransactionCreateRequest;
 import com.credtrack.backend.dto.TransactionResponse;
 import com.credtrack.backend.dto.UserCardResponse;
+import com.credtrack.backend.dto.UtilityBillCreateRequest;
+import com.credtrack.backend.dto.UtilityBillResponse;
+import com.credtrack.backend.dto.UtilityPaymentCreateRequest;
 import com.credtrack.backend.entity.GmailCredential;
 import com.credtrack.backend.entity.UserCard;
+import UserUtilityAccount;
 import com.credtrack.backend.repository.CardStatementRepository;
 import com.credtrack.backend.repository.GmailCredentialRepository;
 import com.credtrack.backend.repository.UserCardRepository;
+import com.credtrack.backend.repository.UserUtilityAccountRepository;
+import com.credtrack.backend.repository.UtilityBillRepository;
+import com.credtrack.backend.repository.UtilityPaymentRepository;
 import com.credtrack.backend.service.GmailOAuthService;
+import com.credtrack.backend.service.UtilityBillInternalService;
+import com.credtrack.backend.service.UtilityPaymentInternalService;
 import com.credtrack.backend.service.PaymentInternalService;
 import com.credtrack.backend.service.StatementInternalService;
 import com.credtrack.backend.service.TransactionInternalService;
@@ -42,14 +51,19 @@ public class InternalController {
 
     private static final Logger log = LoggerFactory.getLogger(InternalController.class);
 
-    private final TransactionInternalService internalService;
-    private final StatementInternalService   statementService;
-    private final PaymentInternalService     paymentService;
-    private final UserCardService            userCardService;
-    private final GmailCredentialRepository  gmailCredentialRepo;
-    private final UserCardRepository         userCardRepo;
-    private final GmailOAuthService          gmailOAuthService;
-    private final CardStatementRepository    statementRepo;
+    private final TransactionInternalService   internalService;
+    private final StatementInternalService     statementService;
+    private final PaymentInternalService       paymentService;
+    private final UserCardService              userCardService;
+    private final GmailCredentialRepository    gmailCredentialRepo;
+    private final UserCardRepository           userCardRepo;
+    private final GmailOAuthService            gmailOAuthService;
+    private final CardStatementRepository      statementRepo;
+    private final UtilityBillInternalService    utilityBillService;
+    private final UtilityPaymentInternalService utilityPaymentService;
+    private final UserUtilityAccountRepository  utilityAccountRepo;
+    private final UtilityBillRepository         utilityBillRepo;
+    private final UtilityPaymentRepository      utilityPaymentRepo;
 
     public InternalController(TransactionInternalService internalService,
                               StatementInternalService statementService,
@@ -58,15 +72,25 @@ public class InternalController {
                               GmailCredentialRepository gmailCredentialRepo,
                               UserCardRepository userCardRepo,
                               GmailOAuthService gmailOAuthService,
-                              CardStatementRepository statementRepo) {
-        this.internalService     = internalService;
-        this.statementService    = statementService;
-        this.paymentService      = paymentService;
-        this.userCardService     = userCardService;
-        this.gmailCredentialRepo = gmailCredentialRepo;
-        this.userCardRepo        = userCardRepo;
-        this.gmailOAuthService   = gmailOAuthService;
-        this.statementRepo       = statementRepo;
+                              CardStatementRepository statementRepo,
+                              UtilityBillInternalService utilityBillService,
+                              UtilityPaymentInternalService utilityPaymentService,
+                              UserUtilityAccountRepository utilityAccountRepo,
+                              UtilityBillRepository utilityBillRepo,
+                              UtilityPaymentRepository utilityPaymentRepo) {
+        this.internalService       = internalService;
+        this.statementService      = statementService;
+        this.paymentService        = paymentService;
+        this.userCardService       = userCardService;
+        this.gmailCredentialRepo   = gmailCredentialRepo;
+        this.userCardRepo          = userCardRepo;
+        this.gmailOAuthService     = gmailOAuthService;
+        this.statementRepo         = statementRepo;
+        this.utilityBillService    = utilityBillService;
+        this.utilityPaymentService = utilityPaymentService;
+        this.utilityAccountRepo    = utilityAccountRepo;
+        this.utilityBillRepo       = utilityBillRepo;
+        this.utilityPaymentRepo    = utilityPaymentRepo;
     }
 
     /**
@@ -285,9 +309,108 @@ public class InternalController {
         UserCard card = userCardRepo.findById(cardId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Card not found: " + cardId));
-        card.setLastTransactionScanAt(java.time.LocalDateTime.now());
+        card.setLastTransactionScanAt(LocalDateTime.now());
         userCardRepo.save(card);
         log.info("Transaction scan timestamp updated for card {}", cardId);
+        return ResponseEntity.ok().build();
+    }
+
+    // ── Utility bills ─────────────────────────────────────────────────────────
+
+    /**
+     * GET /internal/utility-accounts
+     * AI agent calls this to get all registered utility accounts across all users
+     * so it knows which Gmail mailboxes to search for utility bill emails.
+     */
+    @GetMapping("/utility-accounts")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<Map<String, Object>>> getAllUtilityAccounts() {
+        List<Map<String, Object>> result = utilityAccountRepo.findAll().stream()
+                .map(a -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id",                   a.getId());
+                    m.put("userId",               a.getUser().getId());
+                    m.put("billerName",           a.getBillerName());
+                    m.put("accountLastFour",      a.getAccountLastFour());
+                    m.put("utilityInitComplete",  a.isUtilityInitComplete());
+                    return m;
+                })
+                .toList();
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * POST /internal/utility-accounts/{accountId}/init-complete
+     * AI agent calls this after the one-time historical init scan completes for a
+     * utility account. Sets utilityInitComplete=true so the coordinator switches
+     * to the normal incremental poll path on subsequent poll cycles.
+     */
+    @PostMapping("/utility-accounts/{accountId}/init-complete")
+    @Transactional
+    public ResponseEntity<Void> markUtilityAccountInitComplete(@PathVariable Long accountId) {
+        UserUtilityAccount account = utilityAccountRepo.findById(accountId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Utility account not found: " + accountId));
+        account.setUtilityInitComplete(true);
+        utilityAccountRepo.save(account);
+        log.info("Utility account {} init-complete marked", accountId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * POST /internal/utility-bills
+     * AI agent writes an extracted utility bill.
+     * Returns 201 on success, 409 if gmailMessageId already exists.
+     */
+    @PostMapping("/utility-bills")
+    public ResponseEntity<UtilityBillResponse> createUtilityBill(
+            @RequestBody UtilityBillCreateRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(utilityBillService.create(req));
+    }
+
+    /**
+     * POST /internal/utility-payments
+     * AI agent writes an extracted utility payment.
+     * Returns 204 on success, 409 if gmailMessageId already processed.
+     */
+    @PostMapping("/utility-payments")
+    public ResponseEntity<Void> createUtilityPayment(
+            @RequestBody UtilityPaymentCreateRequest req) {
+        utilityPaymentService.create(req);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * POST /internal/utility-accounts/{accountId}/reset
+     * Deletes all utility bills and payments for the account, then resets
+     * utilityInitComplete=false so the AI agent re-runs the full historical init
+     * on the next poll cycle. Use this to fix bad payment-matching data.
+     */
+    @PostMapping("/utility-accounts/{accountId}/reset")
+    @Transactional
+    public ResponseEntity<Void> resetUtilityAccount(@PathVariable Long accountId) {
+        UserUtilityAccount account = utilityAccountRepo.findById(accountId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Utility account not found: " + accountId));
+
+        String userId      = account.getUser().getId();
+        String billerName  = account.getBillerName();
+        String lastFour    = account.getAccountLastFour();
+
+        // Delete payments first (FK to bills)
+        int payments = utilityPaymentRepo.deleteByUser_IdAndBillerNameAndAccountLastFour(
+                userId, billerName, lastFour);
+        // Delete bills
+        int bills = utilityBillRepo.deleteByUser_IdAndBillerNameAndAccountLastFour(
+                userId, billerName, lastFour);
+
+        // Reset init flag so the coordinator rescans on the next poll cycle
+        account.setUtilityInitComplete(false);
+        utilityAccountRepo.save(account);
+
+        log.info("Utility account {} reset — deleted {} bill(s) and {} payment(s), init flag cleared",
+                accountId, bills, payments);
         return ResponseEntity.ok().build();
     }
 }
