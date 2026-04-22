@@ -16,13 +16,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: |
-          if [ -d "/Applications/Xcode_16.2.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
-          fi
-          sudo xcodebuild -license accept || true
-          xcodebuild -version
+      - name: Accept Xcode license
+        run: sudo xcodebuild -license accept || true
 
       - name: Build
         working-directory: CredTrack
