@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 // MARK: - UtilityBillsView
 // Shows all bills for a single utility account.
@@ -7,11 +8,14 @@ import SwiftUI
 
 struct UtilityBillsView: View {
     let account: UtilityAccountDTO
+    var onDeleted: ((UtilityAccountDTO) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var bills:      [UtilityBillDTO] = []
-    @State private var isLoading   = false
+    @State private var bills:          [UtilityBillDTO] = []
+    @State private var isLoading       = false
+    @State private var showRemoveAlert = false
+    @State private var isRemoving      = false
 
     // MARK: - Body
 
@@ -24,6 +28,13 @@ struct UtilityBillsView: View {
         .background(Color.ctBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .task { await load() }
+        .alert("Remove Account?", isPresented: $showRemoveAlert) {
+            Button("Remove", role: .destructive) { removeAccount() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            let biller = account.billerName == "NATIONAL_GRID" ? "National Grid" : "Eversource"
+            return Text("This will permanently delete the \(biller) account ending in \(account.accountLastFour) and all its bills and payments. This cannot be undone.")
+        }
     }
 
     // ── Nav bar ───────────────────────────────────────────────────────────────
@@ -67,6 +78,7 @@ struct UtilityBillsView: View {
             ProgressView()
                 .tint(.ctTextSecondary)
             Spacer()
+            removeAccountSection
         } else if bills.isEmpty {
             Spacer()
             Text("No bills found yet")
@@ -79,6 +91,7 @@ struct UtilityBillsView: View {
                 .padding(.horizontal, 40)
                 .padding(.top, 6)
             Spacer()
+            removeAccountSection
         } else {
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 0) {
@@ -104,7 +117,45 @@ struct UtilityBillsView: View {
                 )
                 .padding(.horizontal, 20)
                 .padding(.vertical, 4)
+
+                removeAccountSection
             }
+        }
+    }
+
+    private var removeAccountSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("DANGER ZONE")
+                .font(.ctMicro)
+                .foregroundColor(Color(UIColor.NeoPop.State.error300))
+                .padding(.leading, 4)
+                .padding(.horizontal, 20)
+
+            NeoPopElevatedButton(
+                title:          isRemoving ? "Removing…" : "Remove Account",
+                faceColor:      UIColor.NeoPop.State.error500,
+                labelColor:     .white,
+                superViewColor: .popDeepBlack,
+                fontSize:       15
+            ) {
+                showRemoveAlert = true
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .padding(.horizontal, 20)
+            .disabled(isRemoving)
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 32)
+    }
+
+    private func removeAccount() {
+        guard !isRemoving else { return }
+        isRemoving = true
+        Task {
+            try? await APIClient.shared.deleteUtilityAccount(id: account.id)
+            onDeleted?(account)
+            dismiss()
         }
     }
 

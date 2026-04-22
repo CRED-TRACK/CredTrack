@@ -1,5 +1,6 @@
 # Claude Code internal files
 backend/.claude/
+.claude/worktrees/
 
 # iOS / Xcode
 xcuserdata/

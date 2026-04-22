@@ -3,6 +3,7 @@ import UIKit
 
 struct CardDetailView: View {
     let card: UserCardDTO
+    var onDeleted: ((UserCardDTO) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     @State private var tooltipExpanded         = false
@@ -13,6 +14,8 @@ struct CardDetailView: View {
     @State private var navigateToTransactions  = false
     @State private var transactionCount:       Int = 0
     @State private var unbilledSpend:          UnbilledSpendDTO? = nil
+    @State private var showRemoveAlert         = false
+    @State private var isRemoving              = false
 
     private var model: CardModel { card.toCardModel() }
 
@@ -80,6 +83,7 @@ struct CardDetailView: View {
                     statementsSection
                     transactionsEntrySection
                     infoSection
+                    removeCardSection
                     Spacer().frame(height: 56)
                 }
             }
@@ -101,6 +105,12 @@ struct CardDetailView: View {
             .ignoresSafeArea()
         )
         .navigationBarHidden(true)
+        .alert("Remove Card?", isPresented: $showRemoveAlert) {
+            Button("Remove", role: .destructive) { removeCard() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will permanently delete \(card.nickname ?? card.productName) and all its statements, payments, and transactions. This cannot be undone.")
+        }
         .task {
             async let stmtPage    = APIClient.shared.fetchStatements(cardId: card.id, size: 5)
             async let txPage      = APIClient.shared.fetchTransactions(cardId: card.id, size: 1)
@@ -523,6 +533,44 @@ struct CardDetailView: View {
                     )
                 )
         )
+    }
+
+    // MARK: - Remove card
+
+    private var removeCardSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("DANGER ZONE")
+                .font(.ctMicro)
+                .foregroundColor(Color(UIColor.NeoPop.State.error300))
+                .padding(.leading, 4)
+                .padding(.horizontal, 20)
+
+            NeoPopElevatedButton(
+                title:          isRemoving ? "Removing…" : "Remove Card",
+                faceColor:      UIColor.NeoPop.State.error500,
+                labelColor:     .white,
+                superViewColor: .popDeepBlack,
+                fontSize:       15
+            ) {
+                showRemoveAlert = true
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .padding(.horizontal, 20)
+            .disabled(isRemoving)
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 24)
+    }
+
+    private func removeCard() {
+        guard !isRemoving else { return }
+        isRemoving = true
+        Task {
+            try? await APIClient.shared.deleteUserCard(id: card.id)
+            onDeleted?(card)
+            dismiss()
+        }
     }
 
     // MARK: - Helpers

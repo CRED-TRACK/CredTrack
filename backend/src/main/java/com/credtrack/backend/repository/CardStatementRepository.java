@@ -41,4 +41,23 @@ public interface CardStatementRepository extends JpaRepository<CardStatement, Lo
 
     // Oldest unpaid statement — orphan auto-match on statement arrival
     Optional<CardStatement> findTopByUserCard_IdAndIsPaidFalseOrderByStatementDateAsc(Long userCardId);
+
+    /** Hard-delete all linked statements for a card — used when a card is removed. */
+    @org.springframework.transaction.annotation.Transactional
+    void deleteByUserCard_Id(Long userCardId);
+
+    /**
+     * Hard-delete orphaned statements (user_card_id IS NULL) that belong to this card
+     * by matching userId + lastFour + bank. These have no direct FK to UserCard but
+     * their gmail_message_id would block re-import if the card is re-added.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query(
+        "DELETE FROM CardStatement s WHERE s.user.id = :userId AND s.cardLastFour = :lastFour AND s.bank = :bankKey AND s.userCard IS NULL"
+    )
+    int deleteOrphansByUser_IdAndCardLastFourAndBank(
+            @org.springframework.data.repository.query.Param("userId") String userId,
+            @org.springframework.data.repository.query.Param("lastFour") String lastFour,
+            @org.springframework.data.repository.query.Param("bankKey") String bankKey);
 }

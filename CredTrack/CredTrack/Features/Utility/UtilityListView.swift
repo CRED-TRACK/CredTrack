@@ -9,9 +9,12 @@ import Synth
 
 struct UtilityListView: View {
 
-    @State private var accounts:      [UtilityAccountDTO] = []
-    @State private var isLoading      = false
-    @State private var showAddUtility = false
+    @State private var accounts:           [UtilityAccountDTO] = []
+    @State private var isLoading           = false
+    @State private var showAddUtility      = false
+    @State private var accountToDelete:    UtilityAccountDTO? = nil
+    @State private var showDeleteAlert     = false
+    @State private var isDeleting          = false
 
     var body: some View {
         NavigationStack {
@@ -25,7 +28,9 @@ struct UtilityListView: View {
             .background(Color.ctSurface.ignoresSafeArea())
             .navigationBarHidden(true)
             .navigationDestination(for: UtilityAccountDTO.self) { account in
-                UtilityBillsView(account: account)
+                UtilityBillsView(account: account) { _ in
+                    Task { await load() }
+                }
             }
         }
         .tint(.ctTextPrimary)
@@ -34,6 +39,13 @@ struct UtilityListView: View {
                 .presentationBackground(Color.ctSurface)
         }
         .task { await load() }
+        .alert("Remove Account?", isPresented: $showDeleteAlert, presenting: accountToDelete) { account in
+            Button("Remove", role: .destructive) { deleteAccount(account) }
+            Button("Cancel", role: .cancel) { accountToDelete = nil }
+        } message: { account in
+            let biller = account.billerName == "NATIONAL_GRID" ? "National Grid" : "Eversource"
+            return Text("This will permanently delete the \(biller) account ending in \(account.accountLastFour) and all its bills and payments. This cannot be undone.")
+        }
     }
 
     // MARK: - Main content
@@ -48,6 +60,14 @@ struct UtilityListView: View {
                     header
                     ForEach(accounts) { account in
                         PressableUtilityAccountCard(account: account)
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    accountToDelete = account
+                                    showDeleteAlert = true
+                                } label: {
+                                    Label("Remove Account", systemImage: "trash")
+                                }
+                            }
                     }
                 }
                 .padding(.bottom, 48)
@@ -130,6 +150,19 @@ struct UtilityListView: View {
                 .foregroundColor(.ctTextSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Delete
+
+    private func deleteAccount(_ account: UtilityAccountDTO) {
+        guard !isDeleting else { return }
+        isDeleting = true
+        Task {
+            try? await APIClient.shared.deleteUtilityAccount(id: account.id)
+            isDeleting      = false
+            accountToDelete = nil
+            await load()
+        }
     }
 
     // MARK: - Load

@@ -5,8 +5,10 @@ struct CardListView: View {
     @Binding var selectedTab: Int
     @EnvironmentObject var gmailManager: GmailConnectionManager
     @StateObject private var vm = UserCardsViewModel()
-    @State private var showAddCard    = false
-    @State private var showGmailPopup = false
+    @State private var showAddCard      = false
+    @State private var showGmailPopup   = false
+    @State private var cardToDelete:    UserCardDTO? = nil
+    @State private var showDeleteAlert  = false
 
     var body: some View {
         Group {
@@ -22,7 +24,11 @@ struct CardListView: View {
         .background(Color.ctSurface.ignoresSafeArea())
         .navigationBarHidden(true)
         .navigationDestination(for: UserCardDTO.self) { card in
-            CardDetailView(card: card)
+            CardDetailView(card: card) { deleted in
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
+                    vm.removeCard(deleted)
+                }
+            }
         }
         .task { await vm.load() }
         .task(id: gmailManager.isConnected) {
@@ -41,6 +47,23 @@ struct CardListView: View {
             AddCardView { vm.reload() }
                 .presentationBackground(Color.ctSurface)
         }
+        .alert("Remove Card?", isPresented: $showDeleteAlert, presenting: cardToDelete) { card in
+            Button("Remove", role: .destructive) { deleteCard(card) }
+            Button("Cancel", role: .cancel) { cardToDelete = nil }
+        } message: { card in
+            Text("This will permanently delete \(card.nickname ?? card.productName) and all its statements, payments, and transactions. This cannot be undone.")
+        }
+    }
+
+    // MARK: - Delete
+
+    private func deleteCard(_ card: UserCardDTO) {
+        cardToDelete = nil
+        withAnimation(
+            .spring(response: 0.42, dampingFraction: 0.78)
+        ) {
+            vm.removeCard(card)
+        }
     }
 
     // MARK: - Card scroll
@@ -55,6 +78,20 @@ struct CardListView: View {
                 }
                 ForEach(cards, id: \.id) { dto in
                     PressableCard(dto: dto)
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                cardToDelete   = dto
+                                showDeleteAlert = true
+                            } label: {
+                                Label("Remove Card", systemImage: "trash")
+                            }
+                        }
+                        .transition(
+                            .asymmetric(
+                                insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                                removal:   .opacity.combined(with: .scale(scale: 0.82))
+                            )
+                        )
                 }
             }
             .padding(.bottom, 48)
