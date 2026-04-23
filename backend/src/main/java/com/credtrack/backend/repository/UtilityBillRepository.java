@@ -2,7 +2,8 @@ package com.credtrack.backend.repository;
 
 import com.credtrack.backend.entity.UtilityBill;
 import org.springframework.data.jpa.repository.JpaRepository;
-
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -51,6 +52,16 @@ public interface UtilityBillRepository extends JpaRepository<UtilityBill, Long> 
      */
     Optional<UtilityBill> findTopByUser_IdAndBillerNameAndAccountLastFourAndIsPaidFalseAndAmountDueOrderByDueDateAsc(
             String userId, String billerName, String accountLastFour, BigDecimal amountDue);
+
+    /** Find bills with a given PDF status, oldest first — used by the extraction scheduler. */
+    List<UtilityBill> findByPdfStatusOrderByCreatedAtAsc(String pdfStatus);
+
+    /** Collect firebase paths for bills before bulk deletion — used to purge storage. */
+    @Query("SELECT b.firebasePath FROM UtilityBill b WHERE b.user.id = :userId AND b.billerName = :billerName AND b.accountLastFour = :lastFour AND b.firebasePath IS NOT NULL")
+    List<String> findFirebasePathsByUser_IdAndBillerNameAndAccountLastFour(
+            @Param("userId") String userId,
+            @Param("billerName") String billerName,
+            @Param("lastFour") String lastFour);
 
     /** Delete all bills for a given user+biller+account. Used by the reset endpoint. */
     @Transactional

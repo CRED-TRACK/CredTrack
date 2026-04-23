@@ -49,13 +49,24 @@ public class FirebaseStorageService {
 
     /**
      * Downloads a PDF from Firebase Storage and returns its bytes.
-     * Works for both statement and utility bill paths.
      * Returns null if storagePath is null.
      */
-    public byte[] downloadStatementPdf(String storagePath) {
+    public byte[] downloadPdf(String storagePath) {
         if (storagePath == null || storagePath.isBlank()) return null;
         return StorageClient.getInstance().bucket(bucket)
                 .get(storagePath)
                 .getContent();
+    }
+
+    /** Deletes a file from Firebase Storage. No-op if path is null. Returns true if deleted. */
+    public boolean deletePdf(String storagePath) {
+        if (storagePath == null || storagePath.isBlank()) return false;
+        try {
+            return StorageClient.getInstance().bucket(bucket)
+                    .get(storagePath)
+                    .delete();
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

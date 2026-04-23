@@ -67,8 +67,12 @@ public class UtilityBill {
     @Column(name = "firebase_path", columnDefinition = "TEXT")
     private String firebasePath;
 
-    @Column(name = "pdf_status", length = 20)
-    private String pdfStatus;   // PENDING | EXTRACTED | FAILED | null
+    // PENDING | EXTRACTING | AWAITING_CONFIRMATION | WRONG_STATEMENT | EXTRACTED | FAILED | null
+    @Column(name = "pdf_status", length = 30)
+    private String pdfStatus;
+
+    @Column(name = "extracted_data", columnDefinition = "TEXT")
+    private String extractedData;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
