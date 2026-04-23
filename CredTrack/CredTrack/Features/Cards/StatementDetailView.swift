@@ -18,6 +18,12 @@ struct StatementDetailView: View {
     @State private var pdfViewerData: Data? = nil
     @State private var isLoadingPdf       = false
 
+    // Extraction state
+    @State private var showExtractionPreview  = false
+    @State private var extractionResult: StatementExtractionResultDTO? = nil
+    @State private var isLoadingPreview       = false
+    @State private var pollingTimer: Timer?   = nil
+
     // MARK: - Body
 
     var body: some View {
@@ -70,6 +76,19 @@ struct StatementDetailView: View {
             .presentationDetents([.height(320)])
             .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showExtractionPreview) {
+            if let result = extractionResult {
+                StatementExtractionPreviewSheet(
+                    result:    result,
+                    statement: statement,
+                    onApply:   { force in Task { await applyExtraction(force: force) } },
+                    onCancel:  {}
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
+        }
+        .onDisappear { pollingTimer?.invalidate() }
     }
 
     // MARK: - Nav bar
@@ -296,6 +315,36 @@ struct StatementDetailView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 13)
+
+                    // Review extraction row — only shown when user action needed
+                    if let status = statement.pdfStatus,
+                       status == "WRONG_STATEMENT" || status == "FAILED" {
+                        Divider().padding(.leading, 64)
+                        Button { Task { await loadAndShowPreview() } } label: {
+                            HStack {
+                                Image(systemName: status == "FAILED" ? "xmark.circle" : "doc.badge.arrow.up")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(pdfStatusColor)
+                                    .frame(width: 34, height: 34)
+                                    .background(Circle().fill(Color.NeoPop.Black.c200))
+                                Text(status == "FAILED" ? "Extraction Failed — Tap for Details"
+                                     : status == "WRONG_STATEMENT" ? "Possible Wrong Statement — Review"
+                                     : "Review Extracted Data")
+                                    .font(.ctBody)
+                                    .foregroundColor(pdfStatusColor)
+                                Spacer()
+                                if isLoadingPreview {
+                                    ProgressView().tint(.ctTextPrimary).scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(.ctTextSecondary)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 13)
+                        }
+                    }
                 }
                 .background(Color.ctSurface)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -354,19 +403,21 @@ struct StatementDetailView: View {
 
     private var pdfStatusLabel: String {
         switch statement.pdfStatus {
-        case "PENDING":   return "Processing…"
-        case "EXTRACTED": return "Analysed"
-        case "FAILED":    return "Processing failed"
-        default:          return "Uploaded"
+        case "PENDING", "EXTRACTING": return "Analysing PDF…"
+        case "EXTRACTED":             return "PDF Applied"
+        case "WRONG_STATEMENT":       return "Check Required"
+        case "FAILED":                return "Extraction Failed"
+        default:                      return statement.hasPdf == true ? "PDF Uploaded" : "No PDF"
         }
     }
 
     private var pdfStatusColor: Color {
         switch statement.pdfStatus {
-        case "PENDING":   return Color(UIColor.NeoPop.State.warning300)
-        case "EXTRACTED": return Color(UIColor.NeoPop.State.success300)
-        case "FAILED":    return Color(UIColor.NeoPop.State.error300)
-        default:          return .ctTextSecondary
+        case "PENDING", "EXTRACTING": return Color(UIColor.NeoPop.State.warning300)
+        case "EXTRACTED":             return Color(UIColor.NeoPop.State.success300)
+        case "WRONG_STATEMENT":       return Color(UIColor.NeoPop.State.warning300)
+        case "FAILED":                return Color(UIColor.NeoPop.State.error300)
+        default:                      return .ctTextSecondary
         }
     }
 
@@ -393,6 +444,7 @@ struct StatementDetailView: View {
             )
             withAnimation { statement = updated }
             uploadSuccess = true
+            startPolling()
             // Auto-dismiss success message after 3 seconds
             try? await Task.sleep(for: .seconds(3))
             withAnimation { uploadSuccess = false }
@@ -400,6 +452,52 @@ struct StatementDetailView: View {
             uploadError = "Upload failed. Please try again."
         }
         isUploadingPdf = false
+    }
+
+    // MARK: - Extraction
+
+    private func loadAndShowPreview() async {
+        isLoadingPreview = true
+        do {
+            let result = try await APIClient.shared.fetchStatementExtractionPreview(statementId: statement.id)
+            extractionResult = result
+            showExtractionPreview = true
+        } catch {
+            uploadError = "Could not load extraction data."
+        }
+        isLoadingPreview = false
+    }
+
+    private func applyExtraction(force: Bool) async {
+        do {
+            let updated = try await APIClient.shared.applyStatementExtraction(statementId: statement.id, force: force)
+            withAnimation { statement = updated }
+            showExtractionPreview = false
+        } catch {
+            uploadError = "Failed to apply changes."
+        }
+    }
+
+    private func startPolling() {
+        pollingTimer?.invalidate()
+        var tries = 0
+        pollingTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { timer in
+            tries += 1
+            if tries > 60 { timer.invalidate(); return }
+            Task { @MainActor in
+                guard let status = self.statement.pdfStatus,
+                      status == "PENDING" || status == "EXTRACTING" else {
+                    timer.invalidate()
+                    return
+                }
+                if let updated = try? await APIClient.shared.fetchStatement(statementId: self.statement.id) {
+                    self.statement = updated
+                    if let s = updated.pdfStatus, s != "PENDING" && s != "EXTRACTING" {
+                        timer.invalidate()
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Helpers

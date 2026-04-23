@@ -4,8 +4,10 @@ import com.credtrack.backend.entity.Transaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -81,8 +83,17 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("userCardId") Long userCardId,
             @Param("since") LocalDate since);
 
+    /** Delete transactions for a card within a date range — used when applying PDF extraction. */
+    @Transactional
+    @Modifying
+    @Query("DELETE FROM Transaction t WHERE t.userCard.id = :cardId AND t.transactionDate >= :from AND t.transactionDate <= :to")
+    int deleteByUserCard_IdAndTransactionDateBetween(
+            @Param("cardId") Long cardId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
+
     /** Hard-delete all linked transactions for a card — used when a card is removed. */
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     void deleteByUserCard_Id(Long userCardId);
 
     /**
@@ -90,13 +101,11 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      * by matching userId + lastFour + bankKey. These have no direct FK to UserCard but
      * their gmail_message_id would block re-import if the card is re-added.
      */
-    @org.springframework.transaction.annotation.Transactional
-    @org.springframework.data.jpa.repository.Modifying
-    @org.springframework.data.jpa.repository.Query(
-        "DELETE FROM Transaction t WHERE t.user.id = :userId AND t.cardLastFour = :lastFour AND t.bankKey = :bankKey AND t.userCard IS NULL"
-    )
+    @Transactional
+    @Modifying
+    @Query("DELETE FROM Transaction t WHERE t.user.id = :userId AND t.cardLastFour = :lastFour AND t.bankKey = :bankKey AND t.userCard IS NULL")
     int deleteOrphansByUser_IdAndCardLastFourAndBankKey(
-            @org.springframework.data.repository.query.Param("userId") String userId,
-            @org.springframework.data.repository.query.Param("lastFour") String lastFour,
-            @org.springframework.data.repository.query.Param("bankKey") String bankKey);
+            @Param("userId") String userId,
+            @Param("lastFour") String lastFour,
+            @Param("bankKey") String bankKey);
 }

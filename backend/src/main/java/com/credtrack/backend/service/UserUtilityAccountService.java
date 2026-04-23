@@ -28,15 +28,18 @@ public class UserUtilityAccountService {
     private final UserRepository               userRepo;
     private final UtilityBillRepository        utilityBillRepo;
     private final UtilityPaymentRepository     utilityPaymentRepo;
+    private final FirebaseStorageService       storageService;
 
     public UserUtilityAccountService(UserUtilityAccountRepository utilityAccountRepo,
                                      UserRepository userRepo,
                                      UtilityBillRepository utilityBillRepo,
-                                     UtilityPaymentRepository utilityPaymentRepo) {
+                                     UtilityPaymentRepository utilityPaymentRepo,
+                                     FirebaseStorageService storageService) {
         this.utilityAccountRepo = utilityAccountRepo;
         this.userRepo           = userRepo;
         this.utilityBillRepo    = utilityBillRepo;
         this.utilityPaymentRepo = utilityPaymentRepo;
+        this.storageService     = storageService;
     }
 
     public List<UserUtilityAccountResponse> getAccounts(String userId) {
@@ -90,13 +93,18 @@ public class UserUtilityAccountService {
         String billerName = account.getBillerName();
         String lastFour   = account.getAccountLastFour();
 
+        // Purge PDFs from Firebase Storage before deleting bill rows
+        List<String> pdfPaths = utilityBillRepo.findFirebasePathsByUser_IdAndBillerNameAndAccountLastFour(
+                userId, billerName, lastFour);
+        pdfPaths.forEach(storageService::deletePdf);
+
         int payments = utilityPaymentRepo.deleteByUser_IdAndBillerNameAndAccountLastFour(
                 userId, billerName, lastFour);
         int bills    = utilityBillRepo.deleteByUser_IdAndBillerNameAndAccountLastFour(
                 userId, billerName, lastFour);
         utilityAccountRepo.delete(account);
 
-        log.info("Utility account {} ({} {}) hard-deleted for user {} — {} bill(s), {} payment(s) removed",
-                accountId, billerName, lastFour, userId, bills, payments);
+        log.info("Utility account {} ({} {}) hard-deleted for user {} — PDFs purged: {}, {} bill(s), {} payment(s) removed",
+                accountId, billerName, lastFour, userId, pdfPaths.size(), bills, payments);
     }
 }

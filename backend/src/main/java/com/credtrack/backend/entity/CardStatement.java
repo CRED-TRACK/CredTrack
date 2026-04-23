@@ -80,9 +80,12 @@ public class CardStatement {
     @Column(name = "extracted_text", columnDefinition = "TEXT")
     private String extractedText;
 
-    // PENDING | EXTRACTED | FAILED | null (Gmail-sourced rows never set this)
-    @Column(name = "pdf_status", length = 20)
+    // PENDING | EXTRACTING | AWAITING_CONFIRMATION | WRONG_STATEMENT | EXTRACTED | FAILED | null
+    @Column(name = "pdf_status", length = 30)
     private String pdfStatus;
+
+    @Column(name = "extracted_data", columnDefinition = "TEXT")
+    private String extractedData;
 
     @PrePersist
     private void prePersist() {

@@ -31,19 +31,22 @@ public class UserCardService {
     private final CardPaymentRepository   cardPaymentRepo;
     private final CardStatementRepository cardStatementRepo;
     private final TransactionRepository   transactionRepo;
+    private final FirebaseStorageService  storageService;
 
     public UserCardService(UserCardRepository userCardRepo,
                            UserRepository userRepo,
                            CardProductRepository cardProductRepo,
                            CardPaymentRepository cardPaymentRepo,
                            CardStatementRepository cardStatementRepo,
-                           TransactionRepository transactionRepo) {
+                           TransactionRepository transactionRepo,
+                           FirebaseStorageService storageService) {
         this.userCardRepo      = userCardRepo;
         this.userRepo          = userRepo;
         this.cardProductRepo   = cardProductRepo;
         this.cardPaymentRepo   = cardPaymentRepo;
         this.cardStatementRepo = cardStatementRepo;
         this.transactionRepo   = transactionRepo;
+        this.storageService    = storageService;
     }
 
     public List<UserCardResponse> getCardsForUser(String userId, boolean includeInactive) {
@@ -154,7 +157,10 @@ public class UserCardService {
                 ? transactionRepo.deleteOrphansByUser_IdAndCardLastFourAndBankKey(userId, lastFour, bankKey)
                 : 0;
 
-        // ── Step 3: statements ───────────────────────────────────────────────
+        // ── Step 3: statements — purge PDFs from Firebase Storage first ──────
+        List<String> pdfPaths = cardStatementRepo.findFirebasePathsByUserCard_Id(cardId);
+        pdfPaths.forEach(storageService::deletePdf);
+
         cardStatementRepo.deleteByUserCard_Id(cardId);
         int orphanStatements = (lastFour != null && bankKey != null)
                 ? cardStatementRepo.deleteOrphansByUser_IdAndCardLastFourAndBank(userId, lastFour, bankKey)
@@ -164,8 +170,8 @@ public class UserCardService {
         userCardRepo.delete(card);
 
         log.info("Card {} ({} / lastFour={}) hard-deleted for user {} — " +
-                 "orphaned records also purged: {} payment(s), {} transaction(s), {} statement(s)",
-                cardId, bankKey, lastFour, userId,
+                 "PDFs purged: {}, orphaned records: {} payment(s), {} transaction(s), {} statement(s)",
+                cardId, bankKey, lastFour, userId, pdfPaths.size(),
                 orphanPayments, orphanTxns, orphanStatements);
     }
 }

@@ -113,7 +113,42 @@ struct CardStatementDTO: Decodable, Identifiable {
     let paidAmount:       Double?
     let paymentDate:      String?   // "YYYY-MM-DD"
     let hasPdf:           Bool?
-    let pdfStatus:        String?   // "PENDING" | "EXTRACTED" | "FAILED" | nil
+    let pdfStatus:        String?   // PENDING | EXTRACTING | AWAITING_CONFIRMATION | WRONG_STATEMENT | EXTRACTED | FAILED | nil
+}
+
+struct StatementExtractionResultDTO: Decodable {
+    let status:             String?
+    let validationIssues:   [String]?
+    let failureReason:      String?
+    let bank:               String?
+    let cardLastFour:       String?
+    let statementDate:      String?
+    let billingPeriodStart: String?
+    let billingPeriodEnd:   String?
+    let statementBalance:   Double?
+    let minimumDue:         Double?
+    let dueDate:            String?
+    let transactions:       [ExtractedTransactionDTO]?
+
+    struct ExtractedTransactionDTO: Decodable {
+        let date:         String?
+        let merchantName: String?
+        let amount:       Double?
+        let type:         String?
+    }
+}
+
+struct BillExtractionResultDTO: Decodable {
+    let status:             String?
+    let validationIssues:   [String]?
+    let failureReason:      String?
+    let billerName:         String?
+    let accountLastFour:    String?
+    let billDate:           String?
+    let billingPeriodStart: String?
+    let billingPeriodEnd:   String?
+    let amountDue:          Double?
+    let dueDate:            String?
 }
 
 struct SpringPage<T: Decodable>: Decodable {
@@ -169,7 +204,7 @@ struct UtilityBillDTO: Decodable, Identifiable {
     let isPaid:              Bool?
     let totalPaid:           Double?
     let hasPdf:              Bool?
-    let pdfStatus:           String?   // "PENDING" | "EXTRACTED" | "FAILED" | nil
+    let pdfStatus:           String?   // PENDING | EXTRACTING | AWAITING_CONFIRMATION | WRONG_STATEMENT | EXTRACTED | FAILED | nil
     let payments:            [UtilityPaymentDTO]?
 }
 
@@ -348,6 +383,50 @@ final class APIClient {
     func downloadUtilityBillPdf(billId: Int) async throws -> Data {
         let token = try await currentToken()
         return try await get("/utility-bills/\(billId)/pdf", bearerToken: token)
+    }
+
+    // MARK: PDF Extraction — Statements
+
+    func fetchStatement(statementId: Int) async throws -> CardStatementDTO {
+        let token = try await currentToken()
+        let data  = try await get("/statements/\(statementId)", bearerToken: token)
+        return try decoder.decode(CardStatementDTO.self, from: data)
+    }
+
+    func fetchStatementExtractionPreview(statementId: Int) async throws -> StatementExtractionResultDTO {
+        let token = try await currentToken()
+        let data  = try await get("/statements/\(statementId)/extraction-preview", bearerToken: token)
+        return try decoder.decode(StatementExtractionResultDTO.self, from: data)
+    }
+
+    func applyStatementExtraction(statementId: Int, force: Bool = false) async throws -> CardStatementDTO {
+        struct Body: Encodable { let force: Bool }
+        let body  = try encoder.encode(Body(force: force))
+        let token = try await currentToken()
+        let data  = try await post("/statements/\(statementId)/apply-extraction", body: body, bearerToken: token)
+        return try decoder.decode(CardStatementDTO.self, from: data)
+    }
+
+    // MARK: PDF Extraction — Utility Bills
+
+    func fetchBill(billId: Int) async throws -> UtilityBillDTO {
+        let token = try await currentToken()
+        let data  = try await get("/utility-bills/\(billId)", bearerToken: token)
+        return try decoder.decode(UtilityBillDTO.self, from: data)
+    }
+
+    func fetchBillExtractionPreview(billId: Int) async throws -> BillExtractionResultDTO {
+        let token = try await currentToken()
+        let data  = try await get("/utility-bills/\(billId)/extraction-preview", bearerToken: token)
+        return try decoder.decode(BillExtractionResultDTO.self, from: data)
+    }
+
+    func applyBillExtraction(billId: Int, force: Bool = false) async throws -> UtilityBillDTO {
+        struct Body: Encodable { let force: Bool }
+        let body  = try encoder.encode(Body(force: force))
+        let token = try await currentToken()
+        let data  = try await post("/utility-bills/\(billId)/apply-extraction", body: body, bearerToken: token)
+        return try decoder.decode(UtilityBillDTO.self, from: data)
     }
 
     // MARK: Utility Accounts
