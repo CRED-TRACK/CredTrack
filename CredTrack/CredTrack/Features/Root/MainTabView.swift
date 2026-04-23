@@ -40,10 +40,10 @@ struct MainTabView: View {
                 }
                 .tag(1)
 
-            PlaceholderTab(title: "Rewards")
+            AnalysisView()
                 .tabItem {
-                    Image(systemName: selectedTab == 2 ? "star.fill" : "star")
-                    Text("Rewards")
+                    Image(systemName: selectedTab == 2 ? "chart.bar.fill" : "chart.bar")
+                    Text("Analysis")
                 }
                 .tag(2)
 
@@ -72,17 +72,3 @@ private struct CardsTab: View {
     }
 }
 
-// MARK: - Placeholder Tab
-
-private struct PlaceholderTab: View {
-    let title: String
-
-    var body: some View {
-        ZStack {
-            Color.ctBackground.ignoresSafeArea()
-            Text(title)
-                .font(.ctHeadline)
-                .foregroundColor(.ctTextSecondary)
-        }
-    }
-}

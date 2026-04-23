@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -56,6 +57,28 @@ public interface CardStatementRepository extends JpaRepository<CardStatement, Lo
     /** Hard-delete all linked statements for a card — used when a card is removed. */
     @Transactional
     void deleteByUserCard_Id(Long userCardId);
+
+    /**
+     * Returns raw statement rows for analytics: cardId, bankKey, lastFour,
+     * statementDate, statementBalance (nullable), paidAmount (nullable).
+     * Caller applies COALESCE(statementBalance, paidAmount) logic.
+     */
+    @Query("""
+        SELECT s.userCard.id,
+               s.userCard.cardProduct.bankKey,
+               s.userCard.lastFour,
+               s.statementDate,
+               s.statementBalance,
+               s.paidAmount
+        FROM CardStatement s
+        WHERE s.user.id = :userId
+          AND s.statementDate >= :from
+          AND s.userCard IS NOT NULL
+        ORDER BY s.statementDate ASC
+        """)
+    List<Object[]> findStatementsForAnalytics(
+            @Param("userId") String userId,
+            @Param("from") LocalDate from);
 
     /**
      * Hard-delete orphaned statements (user_card_id IS NULL) that belong to this card
