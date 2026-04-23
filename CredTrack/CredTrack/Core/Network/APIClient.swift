@@ -151,6 +151,67 @@ struct BillExtractionResultDTO: Decodable {
     let dueDate:            String?
 }
 
+// MARK: - Analytics DTOs
+
+struct CardSpendingResponseDTO: Decodable {
+    let totalSpend:        Double
+    let totalTransactions: Int
+    let months:            Int
+    let cards:             [CardSummaryDTO]
+    let categories:        [CategoryClusterDTO]
+    let monthlyBreakdown:  [MonthlyBreakdownDTO]?
+
+    struct CardSummaryDTO: Decodable, Identifiable {
+        var id: Int { cardId }
+        let cardId:           Int
+        let bankKey:          String
+        let lastFour:         String
+        let totalSpend:       Double
+        let transactionCount: Int
+    }
+
+    struct CategoryClusterDTO: Decodable, Identifiable {
+        var id: String { cluster }
+        let cluster:          String
+        let amount:           Double
+        let percentage:       Double
+        let transactionCount: Int
+    }
+
+    struct MonthlyBreakdownDTO: Decodable, Identifiable {
+        var id: String { month }
+        let month:      String
+        let totalSpend: Double
+        let cards:      [CardMonthDataDTO]
+
+        struct CardMonthDataDTO: Decodable {
+            let cardId:   Int
+            let bankKey:  String
+            let lastFour: String
+            let amount:   Double
+        }
+    }
+}
+
+struct UtilityAnalyticsResponseDTO: Decodable {
+    let accounts: [AccountSummaryDTO]
+
+    struct AccountSummaryDTO: Decodable, Identifiable {
+        var id: String { billerName + accountLastFour }
+        let billerName:      String
+        let accountLastFour: String
+        let bills:           [BillPointDTO]
+        let averageAmount:   Double
+        let latestAmount:    Double?
+        let changePercent:   Double?
+
+        struct BillPointDTO: Decodable {
+            let billDate:  String
+            let amountDue: Double
+        }
+    }
+}
+
 struct SpringPage<T: Decodable>: Decodable {
     let content:       [T]
     let totalElements: Int
@@ -486,6 +547,20 @@ final class APIClient {
             return all.filter { $0.accountLastFour == last4 }
         }
         return all
+    }
+
+    // MARK: Analytics
+
+    func fetchCardSpending(months: Int = 6) async throws -> CardSpendingResponseDTO {
+        let token = try await currentToken()
+        let data  = try await get("/analytics/cards?months=\(months)", bearerToken: token)
+        return try decoder.decode(CardSpendingResponseDTO.self, from: data)
+    }
+
+    func fetchUtilityAnalytics() async throws -> UtilityAnalyticsResponseDTO {
+        let token = try await currentToken()
+        let data  = try await get("/analytics/utilities", bearerToken: token)
+        return try decoder.decode(UtilityAnalyticsResponseDTO.self, from: data)
     }
 
     // MARK: Gmail
