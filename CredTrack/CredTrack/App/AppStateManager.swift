@@ -22,7 +22,34 @@ final class AppStateManager: ObservableObject {
                 Auth.auth().removeStateDidChangeListener(handle)
                 self.authListener = nil
             }
-            self.currentScreen = user != nil ? .home : .login
+            guard let user else {
+                self.currentScreen = .login
+                return
+            }
+
+            self.isLoading = true
+            user.getIDToken { token, error in
+                Task { @MainActor in
+                    guard let token, error == nil else {
+                        self.isLoading = false
+                        self.authError = "Could not restore your session. Please sign in again."
+                        self.currentScreen = .login
+                        return
+                    }
+
+                    do {
+                        // Re-sync the backend user record on cold start so fresh
+                        // databases or redeploys do not break authenticated flows.
+                        _ = try await APIClient.shared.login(token: token)
+                        self.currentScreen = .home
+                    } catch {
+                        self.authError = error.localizedDescription
+                        self.currentScreen = .login
+                    }
+
+                    self.isLoading = false
+                }
+            }
         }
     }
 
