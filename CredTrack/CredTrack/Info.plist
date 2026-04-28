@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>BASE_URL</key>
-	<string>http://localhost:8080</string>
+	<string>$(BASE_URL)</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Gilroy-Regular.ttf</string>

@@ -2,6 +2,10 @@ import Foundation
 
 enum APIConfig {
     static var baseURL: String {
-        Bundle.main.object(forInfoDictionaryKey: "BASE_URL") as? String ?? "http://localhost:8080"
+        if let value = Bundle.main.object(forInfoDictionaryKey: "BASE_URL") as? String,
+           !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return value
+        }
+        return "http://localhost:8080"
     }
 }

@@ -38,6 +38,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1A2B3C4D5E6F708192A3B4C5 /* AppConfig.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = CredTrack/Config/AppConfig.xcconfig; sourceTree = SOURCE_ROOT; };
 		0DC41D992F758D02007E5BC3 /* CredTrack.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CredTrack.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0DC41DDB2F758F60007E5BC3 /* libswiftsys_time.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libswiftsys_time.tbd; path = usr/lib/swift/libswiftsys_time.tbd; sourceTree = SDKROOT; };
 		0DC41DDC2F758F60007E5BC3 /* IdentityLookup.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IdentityLookup.framework; path = System/Library/Frameworks/IdentityLookup.framework; sourceTree = SDKROOT; };
@@ -1616,6 +1617,7 @@
 		};
 		0DC41DA52F758D03007E5BC3 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1A2B3C4D5E6F708192A3B4C5 /* AppConfig.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -1649,6 +1651,7 @@
 		};
 		0DC41DA62F758D03007E5BC3 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1A2B3C4D5E6F708192A3B4C5 /* AppConfig.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;

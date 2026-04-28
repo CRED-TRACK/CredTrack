@@ -26,6 +26,7 @@ GoogleService-Info.plist
 **/.env.*
 **/application-local.properties
 **/application-secrets.properties
+CredTrack/CredTrack/Config/Local.xcconfig
 
 # macOS
 .DS_Store

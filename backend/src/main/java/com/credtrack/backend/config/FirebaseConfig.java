@@ -8,7 +8,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Configuration;
 
 import jakarta.annotation.PostConstruct;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 @Configuration
 public class FirebaseConfig {
@@ -17,12 +19,10 @@ public class FirebaseConfig {
 
     @PostConstruct
     public void init() {
-        InputStream serviceAccount =
-                getClass().getClassLoader()
-                        .getResourceAsStream("firebase-service-account.json");
+        InputStream serviceAccount = firebaseServiceAccountStream();
 
         if (serviceAccount == null) {
-            log.warn("firebase-service-account.json not found on classpath — Firebase will not be initialised (OK in CI/test environments)");
+            log.warn("Firebase service account not provided via env var or classpath file — Firebase will not be initialised");
             return;
         }
 
@@ -38,5 +38,20 @@ public class FirebaseConfig {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private InputStream firebaseServiceAccountStream() {
+        String serviceAccountJson = System.getenv("FIREBASE_SERVICE_ACCOUNT_JSON");
+        if (serviceAccountJson != null && !serviceAccountJson.isBlank()) {
+            log.info("Initialising Firebase from FIREBASE_SERVICE_ACCOUNT_JSON secret");
+            return new ByteArrayInputStream(serviceAccountJson.getBytes(StandardCharsets.UTF_8));
+        }
+
+        InputStream classpathStream = getClass().getClassLoader()
+                .getResourceAsStream("firebase-service-account.json");
+        if (classpathStream != null) {
+            log.info("Initialising Firebase from firebase-service-account.json on classpath");
+        }
+        return classpathStream;
     }
 }
