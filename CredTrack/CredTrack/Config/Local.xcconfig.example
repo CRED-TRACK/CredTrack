@@ -1,2 +1,3 @@
 // Copy this file to Local.xcconfig and set your private backend URL there.
-BASE_URL = https://your-backend-url.run.app
+// Use https:/$()/... so the // in https:// is not parsed as an xcconfig comment.
+BASE_URL = https:/$()/your-backend-url.run.app
