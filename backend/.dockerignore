@@ -1,0 +1,8 @@
+target/
+*.md
+*.pdf
+*.pptx
+*.docx
+.git/
+.idea/
+*.iml
