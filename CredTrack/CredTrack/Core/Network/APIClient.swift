@@ -305,8 +305,11 @@ final class APIClient {
     // MARK: Auth
 
     func login(token: String) async throws -> LoginResponse {
+        log("auth_login start base_url=\(APIConfig.baseURL) token=\(tokenSummary(token))")
         let data = try await get("/auth/login", bearerToken: token)
-        return try decoder.decode(LoginResponse.self, from: data)
+        let response = try decoder.decode(LoginResponse.self, from: data)
+        log("auth_login success user_id=\(response.id) email=\(response.email)")
+        return response
     }
 
     // MARK: Card Products
@@ -573,8 +576,11 @@ final class APIClient {
 
     func fetchGmailAuthURL() async throws -> String {
         let token = try await currentToken()
+        log("gmail_oauth authorize_request base_url=\(APIConfig.baseURL) token=\(tokenSummary(token))")
         let data  = try await get("/gmail/oauth/authorize", bearerToken: token)
-        return try decoder.decode(GmailAuthURLResponse.self, from: data).authUrl
+        let authURL = try decoder.decode(GmailAuthURLResponse.self, from: data).authUrl
+        log("gmail_oauth authorize_success url=\(authURL)")
+        return authURL
     }
 
     // MARK: - Private helpers
@@ -600,8 +606,10 @@ final class APIClient {
         if let token = bearerToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
+        log("request start method=POST url=\(url.absoluteString) auth=\(bearerToken != nil) body_bytes=\(body.count)")
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw APIError.serverError(0) }
+        logResponse(http: http, data: data, method: "POST", url: url)
         guard (200...299).contains(http.statusCode) else {
             throw http.statusCode == 401 ? APIError.unauthorized : APIError.serverError(http.statusCode)
         }
@@ -615,8 +623,10 @@ final class APIClient {
         if let token = bearerToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
+        log("request start method=DELETE url=\(url.absoluteString) auth=\(bearerToken != nil)")
         let (_, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw APIError.serverError(0) }
+        log("request end method=DELETE url=\(url.absoluteString) status=\(http.statusCode)")
         guard (200...299).contains(http.statusCode) else {
             throw http.statusCode == 401 ? APIError.unauthorized : APIError.serverError(http.statusCode)
         }
@@ -631,12 +641,35 @@ final class APIClient {
         if let token = bearerToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
+        log("request start method=GET url=\(url.absoluteString) auth=\(bearerToken != nil)")
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw APIError.serverError(0) }
+        logResponse(http: http, data: data, method: "GET", url: url)
         guard (200...299).contains(http.statusCode) else {
             throw http.statusCode == 401 ? APIError.unauthorized : APIError.serverError(http.statusCode)
         }
         return data
+    }
+
+    private func logResponse(http: HTTPURLResponse, data: Data, method: String, url: URL) {
+        let bodyPreview: String
+        if data.isEmpty {
+            bodyPreview = ""
+        } else {
+            bodyPreview = String(decoding: data.prefix(300), as: UTF8.self)
+                .replacingOccurrences(of: "\n", with: " ")
+        }
+        log("request end method=\(method) url=\(url.absoluteString) status=\(http.statusCode) bytes=\(data.count) body=\(bodyPreview)")
+    }
+
+    private func tokenSummary(_ token: String?) -> String {
+        guard let token, !token.isEmpty else { return "missing" }
+        let prefix = String(token.prefix(12))
+        return "\(prefix)... len=\(token.count)"
+    }
+
+    private func log(_ message: String) {
+        print("[CredTrack][API] \(message)")
     }
 }

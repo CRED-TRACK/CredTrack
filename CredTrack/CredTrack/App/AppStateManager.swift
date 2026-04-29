@@ -23,14 +23,17 @@ final class AppStateManager: ObservableObject {
                 self.authListener = nil
             }
             guard let user else {
+                print("[CredTrack][Auth] initial_state no_firebase_user")
                 self.currentScreen = .login
                 return
             }
 
+            print("[CredTrack][Auth] initial_state firebase_user uid=\(user.uid) base_url=\(APIConfig.baseURL)")
             self.isLoading = true
             user.getIDToken { token, error in
                 Task { @MainActor in
                     guard let token, error == nil else {
+                        print("[CredTrack][Auth] initial_state token_fetch_failed error=\(error?.localizedDescription ?? "unknown")")
                         self.isLoading = false
                         self.authError = "Could not restore your session. Please sign in again."
                         self.currentScreen = .login
@@ -40,9 +43,12 @@ final class AppStateManager: ObservableObject {
                     do {
                         // Re-sync the backend user record on cold start so fresh
                         // databases or redeploys do not break authenticated flows.
+                        print("[CredTrack][Auth] initial_state backend_login_start uid=\(user.uid)")
                         _ = try await APIClient.shared.login(token: token)
+                        print("[CredTrack][Auth] initial_state backend_login_success uid=\(user.uid)")
                         self.currentScreen = .home
                     } catch {
+                        print("[CredTrack][Auth] initial_state backend_login_failed error=\(error.localizedDescription)")
                         self.authError = error.localizedDescription
                         self.currentScreen = .login
                     }
@@ -56,10 +62,13 @@ final class AppStateManager: ObservableObject {
     func handleSignInSuccess(token: String) {
         Task {
             do {
+                print("[CredTrack][Auth] sign_in_success backend_login_start base_url=\(APIConfig.baseURL)")
                 _ = try await APIClient.shared.login(token: token)
+                print("[CredTrack][Auth] sign_in_success backend_login_success")
                 isLoading = false
                 currentScreen = .home
             } catch {
+                print("[CredTrack][Auth] sign_in_success backend_login_failed error=\(error.localizedDescription)")
                 isLoading = false
                 authError = error.localizedDescription
             }
@@ -67,6 +76,7 @@ final class AppStateManager: ObservableObject {
     }
 
     func handleSignInFailure() {
+        print("[CredTrack][Auth] sign_in_failure")
         isLoading = false
         authError = "Sign-in failed. Please try again."
     }
