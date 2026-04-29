@@ -76,7 +76,10 @@ final class CreditCardUIView: NeuCardSurface {
                              fallbackType: card.network.assetName,
                              tint: tc)
 
-        networkView.configure(network: card.network)
+        networkView.isHidden = card.network == .amex
+        if card.network != .amex {
+            networkView.configure(network: card.network)
+        }
 
         nameLabel.text      = card.cardName
         nameLabel.textColor = tc

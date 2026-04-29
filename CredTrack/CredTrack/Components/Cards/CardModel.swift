@@ -20,10 +20,10 @@ enum CardNetwork: String {
 
     var assetName: String {
         switch self {
-        case .visa:       return "VISA"
-        case .mastercard: return "MASTERCARD"
-        case .amex:       return "AMERICAN EXPRESS"
-        case .discover:   return "DISCOVER"
+        case .visa:       return "visa"
+        case .mastercard: return "mastercard"
+        case .amex:       return "amex"
+        case .discover:   return "discover"
         case .unknown:    return ""
         }
     }
