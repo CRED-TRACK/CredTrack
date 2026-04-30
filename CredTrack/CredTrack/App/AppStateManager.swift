@@ -12,10 +12,17 @@ final class AppStateManager: ObservableObject {
     @Published var currentScreen: AppScreen = .splash
     @Published var isLoading = false
     @Published var authError: String?
+    @Published private(set) var isResolvingInitialScreen = false
+    @Published private(set) var didResolveInitialScreen = false
 
     private var authListener: AuthStateDidChangeListenerHandle?
+    private var resolvedInitialScreen: AppScreen?
 
     func resolveInitialScreen() {
+        guard !isResolvingInitialScreen, !didResolveInitialScreen else { return }
+        isResolvingInitialScreen = true
+        authError = nil
+
         authListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             guard let self else { return }
             if let handle = self.authListener {
@@ -24,7 +31,7 @@ final class AppStateManager: ObservableObject {
             }
             guard let user else {
                 print("[CredTrack][Auth] initial_state no_firebase_user")
-                self.currentScreen = .login
+                self.finishInitialResolution(screen: .login)
                 return
             }
 
@@ -36,7 +43,7 @@ final class AppStateManager: ObservableObject {
                         print("[CredTrack][Auth] initial_state token_fetch_failed error=\(error?.localizedDescription ?? "unknown")")
                         self.isLoading = false
                         self.authError = "Could not restore your session. Please sign in again."
-                        self.currentScreen = .login
+                        self.finishInitialResolution(screen: .login)
                         return
                     }
 
@@ -46,11 +53,11 @@ final class AppStateManager: ObservableObject {
                         print("[CredTrack][Auth] initial_state backend_login_start uid=\(user.uid)")
                         _ = try await APIClient.shared.login(token: token)
                         print("[CredTrack][Auth] initial_state backend_login_success uid=\(user.uid)")
-                        self.currentScreen = .home
+                        self.finishInitialResolution(screen: .home)
                     } catch {
                         print("[CredTrack][Auth] initial_state backend_login_failed error=\(error.localizedDescription)")
                         self.authError = error.localizedDescription
-                        self.currentScreen = .login
+                        self.finishInitialResolution(screen: .login)
                     }
 
                     self.isLoading = false
@@ -85,5 +92,16 @@ final class AppStateManager: ObservableObject {
         try? Auth.auth().signOut()
         GIDSignIn.sharedInstance.signOut()
         currentScreen = .login
+    }
+
+    func completeSplashTransition() {
+        guard currentScreen == .splash else { return }
+        currentScreen = resolvedInitialScreen ?? .login
+    }
+
+    private func finishInitialResolution(screen: AppScreen) {
+        resolvedInitialScreen = screen
+        isResolvingInitialScreen = false
+        didResolveInitialScreen = true
     }
 }
