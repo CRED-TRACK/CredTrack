@@ -18,6 +18,19 @@ struct CardDetailView: View {
     @State private var isRemoving              = false
 
     private var model: CardModel { card.toCardModel() }
+    private var latestStatement: CardStatementDTO? { statements.first }
+
+    private var displayedStatementBalance: Double? {
+        latestStatement?.statementBalance ?? card.statementBalance
+    }
+
+    private var displayedMinimumDue: Double? {
+        latestStatement?.minimumDue ?? card.minimumDue
+    }
+
+    private var displayedPaymentDueDate: String? {
+        latestStatement?.dueDate ?? card.paymentDueDate
+    }
 
     // MARK: - Utilization
 
@@ -355,9 +368,9 @@ struct CardDetailView: View {
 
     @ViewBuilder
     private var paymentSection: some View {
-        let hasAny = card.statementBalance != nil
-                  || card.minimumDue != nil
-                  || card.paymentDueDate != nil
+        let hasAny = displayedStatementBalance != nil
+                  || displayedMinimumDue != nil
+                  || displayedPaymentDueDate != nil
                   || card.lastPaymentDate != nil
                   || card.lastPaymentAmount != nil
         if hasAny {
@@ -369,25 +382,25 @@ struct CardDetailView: View {
                     .padding(.horizontal, 20)
 
                 VStack(spacing: 0) {
-                    if let sb = card.statementBalance {
+                    if let sb = displayedStatementBalance {
                         DetailInfoRow(icon: "calendar.badge.clock",
                                       label: "Statement Balance",
                                       value: formatCurrency(sb))
-                        if card.minimumDue != nil || card.paymentDueDate != nil
+                        if displayedMinimumDue != nil || displayedPaymentDueDate != nil
                             || card.lastPaymentDate != nil || card.lastPaymentAmount != nil {
                             rowDivider
                         }
                     }
-                    if let md = card.minimumDue {
+                    if let md = displayedMinimumDue {
                         DetailInfoRow(icon: "exclamationmark.circle.fill",
                                       label: "Minimum Due",
                                       value: formatCurrency(md))
-                        if card.paymentDueDate != nil
+                        if displayedPaymentDueDate != nil
                             || card.lastPaymentDate != nil || card.lastPaymentAmount != nil {
                             rowDivider
                         }
                     }
-                    if let pdd = card.paymentDueDate {
+                    if let pdd = displayedPaymentDueDate {
                         DetailInfoRow(icon: "calendar",
                                       label: "Payment Due",
                                       value: formatDate(pdd))
