@@ -36,32 +36,25 @@ final class AppStateManager: ObservableObject {
             }
 
             print("[CredTrack][Auth] initial_state firebase_user uid=\(user.uid) base_url=\(APIConfig.baseURL)")
-            self.isLoading = true
-            user.getIDToken { token, error in
-                Task { @MainActor in
-                    guard let token, error == nil else {
-                        print("[CredTrack][Auth] initial_state token_fetch_failed error=\(error?.localizedDescription ?? "unknown")")
-                        self.isLoading = false
-                        self.authError = "Could not restore your session. Please sign in again."
-                        self.finishInitialResolution(screen: .login)
-                        return
-                    }
+            // Resolve to home immediately — Firebase user already valid.
+            // Backend session sync runs in background; on auth failure we sign out.
+            self.finishInitialResolution(screen: .home)
+            self.syncBackendSessionInBackground(user: user)
+        }
+    }
 
-                    do {
-                        // Re-sync the backend user record on cold start so fresh
-                        // databases or redeploys do not break authenticated flows.
-                        print("[CredTrack][Auth] initial_state backend_login_start uid=\(user.uid)")
-                        _ = try await APIClient.shared.login(token: token)
-                        print("[CredTrack][Auth] initial_state backend_login_success uid=\(user.uid)")
-                        self.finishInitialResolution(screen: .home)
-                    } catch {
-                        print("[CredTrack][Auth] initial_state backend_login_failed error=\(error.localizedDescription)")
-                        self.authError = error.localizedDescription
-                        self.finishInitialResolution(screen: .login)
-                    }
-
-                    self.isLoading = false
-                }
+    private func syncBackendSessionInBackground(user: User) {
+        Task { @MainActor in
+            do {
+                let token = try await user.getIDTokenResult().token
+                print("[CredTrack][Auth] background_sync backend_login_start uid=\(user.uid)")
+                _ = try await APIClient.shared.login(token: token)
+                print("[CredTrack][Auth] background_sync backend_login_success uid=\(user.uid)")
+            } catch APIError.unauthorized {
+                print("[CredTrack][Auth] background_sync unauthorized — signing out")
+                self.signOut()
+            } catch {
+                print("[CredTrack][Auth] background_sync backend_login_failed error=\(error.localizedDescription)")
             }
         }
     }

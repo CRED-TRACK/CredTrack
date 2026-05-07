@@ -32,6 +32,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -249,6 +250,17 @@ public class InternalController {
                     "access_token",    tokens.accessToken(),
                     "token_expiry_utc", tokens.expiryUtc().toString()
             ));
+        } catch (HttpClientErrorException e) {
+            String body = e.getResponseBodyAsString();
+            if (body != null && body.contains("invalid_grant")) {
+                gmailCredentialRepo.delete(cred);
+                log.warn("Refresh token revoked/expired for user {} — credential deleted, user must re-link Gmail",
+                        userId);
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "REFRESH_EXPIRED");
+            }
+            log.error("Token refresh failed for user {}: {}", userId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Token refresh failed: " + e.getMessage());
         } catch (Exception e) {
             log.error("Token refresh failed for user {}: {}", userId, e.getMessage());
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
