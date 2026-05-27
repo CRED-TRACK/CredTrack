@@ -1,6 +1,6 @@
 # CredTrack
 
-A personal finance app for tracking credit card statements and utility bills, with AI-powered PDF extraction via Gmail.
+A personal finance app for tracking credit card statements and utility bills, with AI-powered PDF extraction via Gmail. Push notifications delivered via Telegram bot — no APNs / Apple Developer fees required.
 
 ---
 
@@ -73,7 +73,8 @@ backend/src/main/java/com/credtrack/backend/
 │   ├── CardProductController       # Card product catalogue
 │   ├── BinController               # BIN lookup
 │   ├── GmailStatusController       # Gmail OAuth status
-│   ├── InternalController          # Internal service endpoints
+│   ├── TelegramController          # Telegram link, prefs, webhook receiver
+│   ├── InternalController          # Internal service endpoints (also fires notifications)
 │   └── InternalAnalyticsController
 ├── service/
 │   ├── PdfExtractionService        # Extracts transactions from PDF statements
@@ -83,11 +84,12 @@ backend/src/main/java/com/credtrack/backend/
 │   ├── FirebaseStorageService      # PDF upload/download via Firebase Storage
 │   ├── UserCardService             # Card business logic
 │   ├── BinService                  # BIN number lookups
+│   ├── TelegramService             # Telegram Bot API send + auto-registers webhook on boot
 │   └── ...                         # Payment, utility, statement internal services
 ├── entity/                         # JPA entities: User, UserCard, CardStatement,
 │                                   # Transaction, CardPayment, CardProduct, Issuer,
 │                                   # BinRecord, GmailCredential, UserUtilityAccount,
-│                                   # UtilityBill, UtilityPayment
+│                                   # UtilityBill, UtilityPayment, TelegramLinkToken
 ├── repository/                     # Spring Data JPA repositories
 ├── dto/                            # Request/response DTOs
 ├── config/
@@ -125,6 +127,10 @@ Edit `.env` and fill in the required values:
 | `ENCRYPTION_KEY` | 32-byte base64 key — generate with `openssl rand -base64 32` |
 | `INTERNAL_SERVICE_KEY` | Shared key between backend and AI agent |
 | `AI_AGENT_BASE_URL` | Base URL of the AI agent service (default `http://localhost:8081`) |
+| `TELEGRAM_BOT_TOKEN` | Token from @BotFather (leave blank to disable notifications) |
+| `TELEGRAM_BOT_USERNAME` | Bot username without leading `@`, e.g. `CredTrack_bot` |
+| `TELEGRAM_WEBHOOK_SECRET` | Random secret echoed in `X-Telegram-Bot-Api-Secret-Token` header — `openssl rand -hex 32` |
+| `TELEGRAM_WEBHOOK_PUBLIC_BASE_URL` | Public HTTPS URL of this backend (used at boot to register `setWebhook`) |
 
 ### Create the database
 
@@ -149,6 +155,60 @@ To build a runnable JAR:
 ./mvnw clean package
 java -jar target/backend-0.0.1-SNAPSHOT.jar
 ```
+
+---
+
+## Notifications (Telegram)
+
+CredTrack delivers user-facing alerts via a Telegram bot instead of APNs / Firebase Cloud Messaging — no $99/yr Apple Developer Program fee and no business-account hoops. Per-event preferences are user-controlled from the iOS Profile screen (Notifications row).
+
+### Events
+
+| Event | Default | Source |
+|---|---|---|
+| New statement | **ON** | `POST /internal/statements` |
+| New transaction | OFF | `POST /internal/transactions` |
+| Payment confirmation | OFF | `POST /internal/payments` |
+| Utility bill received | OFF | `POST /internal/utility-bills` |
+
+Notification sends are best-effort and never throw — extraction continues even if the bot is misconfigured or unreachable.
+
+### One-time setup
+
+1. Message `@BotFather` on Telegram, run `/newbot`, save the token and chosen username.
+2. Generate a webhook secret: `openssl rand -hex 32`
+3. Fill the four `TELEGRAM_*` env vars in `.env` (local) or `terraform.tfvars` (deploy). Leaving `TELEGRAM_BOT_TOKEN` blank disables the feature entirely.
+4. On the next backend boot, `TelegramService.registerWebhookOnStartup` calls Telegram's `setWebhook` automatically — no manual curl required. Verify with:
+   ```bash
+   curl -s "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
+   ```
+
+### How linking works
+
+```
+iOS app  ── POST /api/telegram/link-token ─────────────►  backend mints short-lived token
+   │                                                                  │
+   │ ◄────────────────  { token, deepLink } ──────────────────────────┘
+   │
+   ├── opens tg://resolve?domain=<bot>&start=<token>
+   │
+   └── user taps Start in Telegram
+                │
+                ▼
+   Telegram POST /public/telegram/webhook ──►  backend maps chat_id ↔ userId, deletes token, replies "Linked."
+```
+
+Subsequent `POST /internal/*` writes call `TelegramService.notifyIfEnabled(userId, eventType, msg)` — sends only if the user is linked AND has that event toggled on.
+
+### Endpoints
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| `POST` | `/api/telegram/link-token` | Firebase Bearer | Mint 10-min link token + return deep link |
+| `GET`  | `/api/telegram/status` | Firebase Bearer | Returns `{ linked, bot_username, prefs }` |
+| `PATCH`| `/api/telegram/preferences` | Firebase Bearer | Partial update of the 4 `notify_*` booleans |
+| `DELETE` | `/api/telegram/link` | Firebase Bearer | Unlink — clears `telegram_chat_id` |
+| `POST` | `/public/telegram/webhook` | `X-Telegram-Bot-Api-Secret-Token` header | Telegram update receiver |
 
 ---
 
