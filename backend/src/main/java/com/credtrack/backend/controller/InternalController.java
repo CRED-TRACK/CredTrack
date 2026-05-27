@@ -20,6 +20,7 @@ import com.credtrack.backend.repository.UserUtilityAccountRepository;
 import com.credtrack.backend.repository.UtilityBillRepository;
 import com.credtrack.backend.repository.UtilityPaymentRepository;
 import com.credtrack.backend.service.GmailOAuthService;
+import com.credtrack.backend.service.TelegramService;
 import com.credtrack.backend.service.UtilityBillInternalService;
 import com.credtrack.backend.service.UtilityPaymentInternalService;
 import com.credtrack.backend.service.PaymentInternalService;
@@ -65,6 +66,7 @@ public class InternalController {
     private final UserUtilityAccountRepository  utilityAccountRepo;
     private final UtilityBillRepository         utilityBillRepo;
     private final UtilityPaymentRepository      utilityPaymentRepo;
+    private final TelegramService               telegramService;
 
     public InternalController(TransactionInternalService internalService,
                               StatementInternalService statementService,
@@ -78,7 +80,8 @@ public class InternalController {
                               UtilityPaymentInternalService utilityPaymentService,
                               UserUtilityAccountRepository utilityAccountRepo,
                               UtilityBillRepository utilityBillRepo,
-                              UtilityPaymentRepository utilityPaymentRepo) {
+                              UtilityPaymentRepository utilityPaymentRepo,
+                              TelegramService telegramService) {
         this.internalService       = internalService;
         this.statementService      = statementService;
         this.paymentService        = paymentService;
@@ -92,6 +95,16 @@ public class InternalController {
         this.utilityAccountRepo    = utilityAccountRepo;
         this.utilityBillRepo       = utilityBillRepo;
         this.utilityPaymentRepo    = utilityPaymentRepo;
+        this.telegramService       = telegramService;
+    }
+
+    private static String esc(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    private static String fmtAmount(java.math.BigDecimal a) {
+        return a == null ? "—" : a.toPlainString();
     }
 
     /**
@@ -157,8 +170,15 @@ public class InternalController {
     @PostMapping("/statements")
     public ResponseEntity<CardStatementResponse> createStatement(
             @RequestBody StatementCreateRequest req) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(statementService.create(req));
+        CardStatementResponse saved = statementService.create(req);
+        String msg = "📄 <b>New statement</b>"
+                + (req.getBank() != null ? " — " + esc(req.getBank()) : "")
+                + (req.getCardLastFour() != null ? " ••" + esc(req.getCardLastFour()) : "")
+                + "\nBalance: $" + fmtAmount(req.getStatementBalance())
+                + (req.getMinimumPaymentDue() != null ? "\nMin due: $" + fmtAmount(req.getMinimumPaymentDue()) : "")
+                + (req.getDueDate() != null ? "\nDue: " + req.getDueDate() : "");
+        telegramService.notifyIfEnabled(req.getUserId(), TelegramService.EventType.STATEMENT, msg);
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     /**
@@ -170,6 +190,12 @@ public class InternalController {
     @PostMapping("/payments")
     public ResponseEntity<Void> createPayment(@RequestBody PaymentCreateRequest req) {
         paymentService.create(req);
+        String msg = "✅ <b>Payment confirmed</b>"
+                + (req.getBank() != null ? " — " + esc(req.getBank()) : "")
+                + (req.getCardLastFour() != null ? " ••" + esc(req.getCardLastFour()) : "")
+                + "\nAmount: $" + fmtAmount(req.getAmount())
+                + (req.getPaymentDate() != null ? "\nPaid: " + req.getPaymentDate() : "");
+        telegramService.notifyIfEnabled(req.getUserId(), TelegramService.EventType.PAYMENT, msg);
         return ResponseEntity.noContent().build();
     }
 
@@ -181,8 +207,13 @@ public class InternalController {
     @PostMapping("/transactions")
     public ResponseEntity<TransactionResponse> createTransaction(
             @RequestBody TransactionCreateRequest req) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(internalService.create(req));
+        TransactionResponse saved = internalService.create(req);
+        String msg = "💳 <b>" + esc(req.getMerchantName() != null ? req.getMerchantName() : "Transaction") + "</b>"
+                + "\nAmount: $" + fmtAmount(req.getAmount())
+                + (req.getCardLastFour() != null ? " (••" + esc(req.getCardLastFour()) + ")" : "")
+                + (req.getTransactionDate() != null ? "\n" + req.getTransactionDate() : "");
+        telegramService.notifyIfEnabled(req.getUserId(), TelegramService.EventType.TRANSACTION, msg);
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     /**
@@ -377,8 +408,13 @@ public class InternalController {
     @PostMapping("/utility-bills")
     public ResponseEntity<UtilityBillResponse> createUtilityBill(
             @RequestBody UtilityBillCreateRequest req) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(utilityBillService.create(req));
+        UtilityBillResponse saved = utilityBillService.create(req);
+        String msg = "💡 <b>" + esc(req.getBillerName() != null ? req.getBillerName() : "Utility bill") + "</b>"
+                + (req.getAccountLastFour() != null ? " ••" + esc(req.getAccountLastFour()) : "")
+                + "\nAmount due: $" + fmtAmount(req.getAmountDue())
+                + (req.getDueDate() != null ? "\nDue: " + req.getDueDate() : "");
+        telegramService.notifyIfEnabled(req.getUserId(), TelegramService.EventType.UTILITY_BILL, msg);
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     /**

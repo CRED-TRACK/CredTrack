@@ -62,6 +62,27 @@ struct GmailStatusResponse: Decodable {
     let lastSyncedAt: String?
 }
 
+struct TelegramPreferences: Codable, Equatable {
+    var notifyStatements:   Bool
+    var notifyTransactions: Bool
+    var notifyPayments:     Bool
+    var notifyUtilityBills: Bool
+}
+
+struct TelegramStatusResponse: Decodable {
+    let linked:      Bool
+    let botUsername: String?
+    let prefs:       TelegramPreferences
+}
+
+struct TelegramLinkTokenResponse: Decodable {
+    let token:       String
+    let botUsername: String
+    let deepLink:    String
+    let httpsLink:   String
+    let expiresAt:   String?
+}
+
 private struct GmailAuthURLResponse: Decodable {
     let authUrl: String
 }
@@ -583,6 +604,31 @@ final class APIClient {
         return authURL
     }
 
+    // MARK: Telegram
+
+    func fetchTelegramStatus() async throws -> TelegramStatusResponse {
+        let token = try await currentToken()
+        let data  = try await get("/api/telegram/status", bearerToken: token)
+        return try decoder.decode(TelegramStatusResponse.self, from: data)
+    }
+
+    func createTelegramLinkToken() async throws -> TelegramLinkTokenResponse {
+        let token = try await currentToken()
+        let data  = try await post("/api/telegram/link-token", body: Data("{}".utf8), bearerToken: token)
+        return try decoder.decode(TelegramLinkTokenResponse.self, from: data)
+    }
+
+    func updateTelegramPreferences(_ prefs: TelegramPreferences) async throws {
+        let token = try await currentToken()
+        let body  = try encoder.encode(prefs)
+        try await patch("/api/telegram/preferences", body: body, bearerToken: token)
+    }
+
+    func unlinkTelegram() async throws {
+        let token = try await currentToken()
+        try await delete("/api/telegram/link", bearerToken: token)
+    }
+
     // MARK: - Private helpers
 
     /// Returns the current Firebase ID token, refreshing it if needed.
@@ -614,6 +660,25 @@ final class APIClient {
             throw http.statusCode == 401 ? APIError.unauthorized : APIError.serverError(http.statusCode)
         }
         return data
+    }
+
+    private func patch(_ path: String, body: Data, bearerToken: String? = nil) async throws {
+        guard let url = URL(string: "\(APIConfig.baseURL)\(path)") else { throw APIError.invalidURL }
+        var request        = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpBody   = body
+        if let token = bearerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        log("request start method=PATCH url=\(url.absoluteString) auth=\(bearerToken != nil) body_bytes=\(body.count)")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw APIError.serverError(0) }
+        log("request end method=PATCH url=\(url.absoluteString) status=\(http.statusCode)")
+        guard (200...299).contains(http.statusCode) else {
+            throw http.statusCode == 401 ? APIError.unauthorized : APIError.serverError(http.statusCode)
+        }
     }
 
     private func delete(_ path: String, bearerToken: String? = nil) async throws {

@@ -6,6 +6,7 @@ struct ProfileView: View {
     @EnvironmentObject var appState: AppStateManager
     @EnvironmentObject var gmailManager: GmailConnectionManager
     @StateObject private var vm = ProfileViewModel()
+    @State private var showNotificationPrefs = false
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -144,6 +145,8 @@ struct ProfileView: View {
             sectionHeader("INTEGRATIONS")
             VStack(spacing: 0) {
                 GmailIntegrationRow(manager: gmailManager)
+                rowDivider
+                NotificationsRow { showNotificationPrefs = true }
             }
             .background(Color.ctSurface)
             .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -157,6 +160,9 @@ struct ProfileView: View {
             Button("OK") { gmailManager.connectError = nil }
         } message: {
             Text(gmailManager.connectError ?? "")
+        }
+        .sheet(isPresented: $showNotificationPrefs) {
+            NotificationPreferencesView()
         }
     }
 
@@ -439,6 +445,44 @@ private final class StatTileUIView: UIView {
             color: .black, opacity: 0.85
         )
         applyNeuStyle(model: neu)
+    }
+}
+
+// MARK: - Notifications Row
+
+private struct NotificationsRow: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: "bell.badge.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.ctGold)
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Color.ctGold.opacity(0.12)))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Notifications")
+                        .font(.ctMicro)
+                        .foregroundColor(.ctTextSecondary)
+                    Text("Telegram alerts & preferences")
+                        .font(.ctBody)
+                        .foregroundColor(.ctTextPrimary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                NeoPopIcons.chevron
+                    .renderingMode(.template)
+                    .foregroundColor(.ctTextSecondary)
+                    .frame(width: 8, height: 11)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+        }
+        .buttonStyle(.plain)
     }
 }
 
