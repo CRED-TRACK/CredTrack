@@ -40,19 +40,26 @@ struct MainTabView: View {
                 }
                 .tag(1)
 
-            AnalysisView()
+            AdvisorView()
                 .tabItem {
-                    Image(systemName: selectedTab == 2 ? "chart.bar.fill" : "chart.bar")
-                    Text("Analysis")
+                    Image(systemName: "sparkles")
+                    Text("Advisor")
                 }
                 .tag(2)
 
-            ProfileView()
+            AnalysisView()
                 .tabItem {
-                    Image(systemName: selectedTab == 3 ? "person.fill" : "person")
-                    Text("Profile")
+                    Image(systemName: selectedTab == 3 ? "chart.bar.fill" : "chart.bar")
+                    Text("Analysis")
                 }
                 .tag(3)
+
+            ProfileView()
+                .tabItem {
+                    Image(systemName: selectedTab == 4 ? "person.fill" : "person")
+                    Text("Profile")
+                }
+                .tag(4)
         }
         .environmentObject(gmailManager)
         .task { await gmailManager.checkStatus() }
