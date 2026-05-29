@@ -40,4 +40,8 @@ public interface UserCardRepository extends JpaRepository<UserCard, Long> {
     int updateLastPaymentIfMoreRecent(@Param("id")     Long       id,
                                       @Param("date")   LocalDate  date,
                                       @Param("amount") BigDecimal amount);
+
+    /** Distinct card_product_id values that ≥1 active user_card references. */
+    @Query("SELECT DISTINCT uc.cardProduct.id FROM UserCard uc WHERE uc.isActive = true")
+    List<Long> findDistinctActiveCardProductIds();
 }
