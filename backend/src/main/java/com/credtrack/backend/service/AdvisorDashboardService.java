@@ -60,8 +60,12 @@ public class AdvisorDashboardService {
             .toList();
         List<CardRewardRule> allRules = rewardRulesService.findActiveForCardProducts(cardProductIds, asOf);
 
+        // Dedupe per (card_product, canonical_category) preferring USER_OVERRIDE > LLM_SCRAPED > SEED.
+        // Within the same source, prefer higher confidence; tie-breaks pick the most recent effective_from.
         Map<Long, List<CardRewardRule>> rulesByProduct = allRules.stream()
-            .collect(Collectors.groupingBy(r -> r.getCardProduct().getId()));
+            .collect(Collectors.groupingBy(r -> r.getCardProduct().getId(),
+                Collectors.collectingAndThen(Collectors.toList(),
+                    AdvisorDashboardService::dedupeByCategoryPreferSource)));
 
         Map<Long, UserCardCategoryChoice> bofaChoiceByCard = choiceService
             .findActiveBofaChoices(cards.stream().map(UserCard::getId).toList(), asOf);
@@ -189,6 +193,33 @@ public class AdvisorDashboardService {
             .categoryRankings(rankings)
             .cards(sections)
             .build();
+    }
+
+    /** Returns one rule per canonical_category, preferring USER_OVERRIDE > LLM_SCRAPED > SEED. */
+    private static List<CardRewardRule> dedupeByCategoryPreferSource(List<CardRewardRule> rules) {
+        java.util.Map<String, CardRewardRule> best = new java.util.LinkedHashMap<>();
+        for (CardRewardRule r : rules) {
+            String key = r.getCanonicalCategory();
+            CardRewardRule cur = best.get(key);
+            if (cur == null || sourceRank(r) > sourceRank(cur)
+                || (sourceRank(r) == sourceRank(cur) && confidence(r) > confidence(cur))) {
+                best.put(key, r);
+            }
+        }
+        return new ArrayList<>(best.values());
+    }
+
+    private static int sourceRank(CardRewardRule r) {
+        if (r.getSource() == null) return 0;
+        return switch (r.getSource()) {
+            case USER_OVERRIDE -> 3;
+            case LLM_SCRAPED  -> 2;
+            case SEED          -> 1;
+        };
+    }
+
+    private static float confidence(CardRewardRule r) {
+        return r.getSourceConfidence() != null ? r.getSourceConfidence() : 0f;
     }
 
     private String currentQuarterLabel(LocalDate asOf) {
