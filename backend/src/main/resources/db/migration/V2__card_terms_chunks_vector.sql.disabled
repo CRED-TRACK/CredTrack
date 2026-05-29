@@ -1,0 +1,23 @@
+-- Vector-bearing table for Phase 2 RAG retrieval.
+-- Hibernate intentionally does NOT manage this table (vector(768) is unknown to it).
+-- Inserts go through CardTermsChunkInsertService using JdbcTemplate + ?::vector cast.
+CREATE TABLE IF NOT EXISTS card_terms_chunks (
+    id              BIGSERIAL PRIMARY KEY,
+    document_id     BIGINT NOT NULL,
+    card_product_id BIGINT NOT NULL,
+    chunk_index     INTEGER NOT NULL,
+    chunk_text      TEXT NOT NULL,
+    heading_path    VARCHAR(512),
+    token_count     INTEGER,
+    embedding       vector(768) NOT NULL,
+    created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_card_terms_chunks_document_id
+    ON card_terms_chunks (document_id);
+
+CREATE INDEX IF NOT EXISTS idx_card_terms_chunks_card_product_id
+    ON card_terms_chunks (card_product_id);
+
+CREATE INDEX IF NOT EXISTS idx_card_terms_chunks_embedding
+    ON card_terms_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 50);

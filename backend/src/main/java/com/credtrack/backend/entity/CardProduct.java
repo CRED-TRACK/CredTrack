@@ -43,4 +43,11 @@ public class CardProduct {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "link", columnDefinition = "jsonb")
     private Map<String, String> link;
+
+    /**
+     * Public benefits/T&C page URL used by the ai-agent scraper.
+     * NULL = scraper skips this product. Seeded for the user's owned cards in seed_card_reward_rules.sql.
+     */
+    @Column(name = "terms_url", columnDefinition = "TEXT")
+    private String termsUrl;
 }

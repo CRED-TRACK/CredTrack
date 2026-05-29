@@ -37,6 +37,14 @@ public class Transaction {
     @Column(name = "merchant_name",     length = 255) private String merchantName;
     @Column(name = "merchant_category", length = 100) private String merchantCategory;
 
+    /**
+     * Normalized category code (CanonicalCategory enum value, e.g. "GROCERIES_SUPERMARKETS").
+     * Populated by CategoryBackfillService on first deploy and by the email-extraction LLM
+     * for new transactions. Used by CapTrackingService for cap math.
+     */
+    @Column(name = "canonical_category", length = 64)
+    private String canonicalCategory;
+
     @Column(name = "amount", precision = 12, scale = 2, nullable = false)
     private BigDecimal amount;
 

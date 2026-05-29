@@ -5,6 +5,8 @@ import com.credtrack.backend.entity.CardProduct;
 import com.credtrack.backend.entity.Issuer;
 import com.credtrack.backend.repository.BinRecordRepository;
 import com.credtrack.backend.repository.CardProductRepository;
+import com.credtrack.backend.repository.CardRewardRuleRepository;
+import com.credtrack.backend.repository.CategoryAliasRepository;
 import com.credtrack.backend.repository.IssuerRepository;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -36,15 +38,21 @@ public class SeedDataConfig implements ApplicationRunner {
     private final IssuerRepository issuerRepository;
     private final BinRecordRepository binRecordRepository;
     private final CardProductRepository cardProductRepository;
+    private final CategoryAliasRepository categoryAliasRepository;
+    private final CardRewardRuleRepository cardRewardRuleRepository;
     private final DataSource dataSource;
 
     public SeedDataConfig(IssuerRepository issuerRepository,
                           BinRecordRepository binRecordRepository,
                           CardProductRepository cardProductRepository,
+                          CategoryAliasRepository categoryAliasRepository,
+                          CardRewardRuleRepository cardRewardRuleRepository,
                           DataSource dataSource) {
         this.issuerRepository = issuerRepository;
         this.binRecordRepository = binRecordRepository;
         this.cardProductRepository = cardProductRepository;
+        this.categoryAliasRepository = categoryAliasRepository;
+        this.cardRewardRuleRepository = cardRewardRuleRepository;
         this.dataSource = dataSource;
     }
 
@@ -53,6 +61,8 @@ public class SeedDataConfig implements ApplicationRunner {
         seedIssuersIfNeeded();
         seedBinRecordsIfNeeded();
         seedCardProductsIfNeeded();
+        seedCategoryAliasesIfNeeded();
+        seedCardRewardRulesIfNeeded();
     }
 
     private void seedIssuersIfNeeded() throws Exception {
@@ -149,6 +159,28 @@ public class SeedDataConfig implements ApplicationRunner {
         populator.execute(dataSource);
 
         log.info("Card product seed completed: inserted {} row(s)", cardProductRepository.count());
+    }
+
+    private void seedCategoryAliasesIfNeeded() {
+        if (categoryAliasRepository.count() > 0) {
+            log.info("Category alias seed skipped: {} row(s) already present", categoryAliasRepository.count());
+            return;
+        }
+        ResourceDatabasePopulator populator =
+                new ResourceDatabasePopulator(new ClassPathResource("seed/seed_category_aliases.sql"));
+        populator.execute(dataSource);
+        log.info("Category alias seed completed: inserted {} row(s)", categoryAliasRepository.count());
+    }
+
+    private void seedCardRewardRulesIfNeeded() {
+        if (cardRewardRuleRepository.count() > 0) {
+            log.info("Card reward rule seed skipped: {} row(s) already present", cardRewardRuleRepository.count());
+            return;
+        }
+        ResourceDatabasePopulator populator =
+                new ResourceDatabasePopulator(new ClassPathResource("seed/seed_card_reward_rules.sql"));
+        populator.execute(dataSource);
+        log.info("Card reward rule seed completed: inserted {} row(s)", cardRewardRuleRepository.count());
     }
 
     private String value(CSVRecord record, String key) {
