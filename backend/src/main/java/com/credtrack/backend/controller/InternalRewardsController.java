@@ -259,10 +259,28 @@ public class InternalRewardsController {
 
         int deleted = ruleRepository.deleteByCardProductIdAndSource(
             req.getCardProductId(), RuleSource.LLM_SCRAPED);
+        // Force delete to flush so subsequent inserts don't collide with the rows we just removed.
+        ruleRepository.flush();
+
+        // Dedupe by canonical_category — Gemini sometimes returns multiple rules for the same
+        // category (e.g. dining mentioned in two sections). Keep highest-confidence; ties keep first.
+        java.util.LinkedHashMap<String, RuleInput> deduped = new java.util.LinkedHashMap<>();
+        for (RuleInput r : req.getRules()) {
+            if (r.getCanonicalCategory() == null) continue;
+            String key = r.getCanonicalCategory();
+            RuleInput existing = deduped.get(key);
+            if (existing == null) {
+                deduped.put(key, r);
+            } else {
+                float a = existing.getConfidence() != null ? existing.getConfidence() : 0f;
+                float b = r.getConfidence() != null ? r.getConfidence() : 0f;
+                if (b > a) deduped.put(key, r);
+            }
+        }
 
         int saved = 0;
         int skipped = 0;
-        for (RuleInput r : req.getRules()) {
+        for (RuleInput r : deduped.values()) {
             if (r.getCanonicalCategory() == null || r.getRateBps() == null) { skipped++; continue; }
             if (CanonicalCategory.fromCode(r.getCanonicalCategory()).isEmpty()) { skipped++; continue; }
             if (r.getConfidence() != null && r.getConfidence() < floor) { skipped++; continue; }
@@ -296,13 +314,8 @@ public class InternalRewardsController {
                 .sourceDocumentId(req.getDocumentId())
                 .notes(r.getNotes())
                 .build();
-            try {
-                ruleRepository.save(entity);
-                saved++;
-            } catch (org.springframework.dao.DataIntegrityViolationException e) {
-                // Duplicate (card, category, effective_from) — ON CONFLICT-equivalent.
-                skipped++;
-            }
+            ruleRepository.save(entity);
+            saved++;
         }
         log.info("scraped_rules_upsert product_id={} deleted_prev={} saved={} skipped={}",
             req.getCardProductId(), deleted, saved, skipped);
