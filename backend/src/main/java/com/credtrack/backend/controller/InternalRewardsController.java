@@ -282,6 +282,10 @@ public class InternalRewardsController {
         int skipped = 0;
         for (RuleInput r : deduped.values()) {
             if (r.getCanonicalCategory() == null || r.getRateBps() == null) { skipped++; continue; }
+            // Drop zero-rate placeholders — Gemini sometimes emits rate_bps=0 for categories
+            // the page mentions without a concrete rate (e.g. "rotating 5% on gas, dining"
+            // becomes 3 phantom 0% rows). These pollute the dashboard.
+            if (r.getRateBps() <= 0) { skipped++; continue; }
             if (CanonicalCategory.fromCode(r.getCanonicalCategory()).isEmpty()) { skipped++; continue; }
             if (r.getConfidence() != null && r.getConfidence() < floor) { skipped++; continue; }
 
