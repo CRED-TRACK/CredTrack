@@ -11,12 +11,19 @@ final class AdvisorViewModel: ObservableObject {
         case failed(String)
     }
 
+    enum ViewMode: String, CaseIterable, Identifiable {
+        case byCategory = "By category"
+        case byCard     = "By card"
+        var id: String { rawValue }
+    }
+
     @Published private(set) var state: State = .idle
     @Published var selectedCategory: String? = nil
     @Published var categories: [AdvisorCategoryDTO] = []
     @Published var bofaSheetVisible: Bool = false
     @Published var chatSheetVisible: Bool = false
     @Published var categoryPickerVisible: Bool = false
+    @Published var viewMode: ViewMode = .byCategory
 
     /// Card section that owns the BofA Customized Cash product (if any).
     var bofaSection: AdvisorCardSectionDTO? {
@@ -178,5 +185,29 @@ final class AdvisorViewModel: ObservableObject {
             return dash.categoryRankings.first(where: { $0.category == category })?.bestUserCardId
         }
         return nil
+    }
+
+    // MARK: - Card-first grouping (for ViewMode.byCard)
+
+    /// Card sections sorted by name with rewards sorted by effective rate desc.
+    /// Honors selectedCategory as a filter (drops cards with no rule for that category).
+    func cardSectionsSorted() -> [AdvisorCardSectionDTO] {
+        guard case .loaded(let dash) = state else { return [] }
+        let sections = selectedCategory == nil ? dash.cards : filteredSections()
+        return sections.map { card in
+            AdvisorCardSectionDTO(
+                userCardId: card.userCardId,
+                productName: card.productName,
+                issuerName: card.issuerName,
+                bankKey: card.bankKey,
+                faceColor: card.faceColor,
+                gradientEnd: card.gradientEnd,
+                textColor: card.textColor,
+                lastFour: card.lastFour,
+                nickname: card.nickname,
+                rewards: card.rewards.sorted { $0.effectiveRateBps > $1.effectiveRateBps },
+                warnings: card.warnings
+            )
+        }.sorted { ($0.nickname ?? $0.productName) < ($1.nickname ?? $1.productName) }
     }
 }

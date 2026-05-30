@@ -52,6 +52,7 @@ struct AdvisorView: View {
             }
             .task { await vm.load() }
         }
+        .preferredColorScheme(.dark)
     }
 
     private var loadingView: some View {
@@ -79,13 +80,43 @@ struct AdvisorView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 bofaWarningBannerIfAny
+                viewModePicker
                 categoryChips
-                categoryGroups
+                Group {
+                    switch vm.viewMode {
+                    case .byCategory: categoryGroups
+                    case .byCard:     cardGroups
+                    }
+                }
             }
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
         .refreshable { await vm.load() }
+    }
+
+    private var viewModePicker: some View {
+        Picker("View", selection: $vm.viewMode) {
+            ForEach(AdvisorViewModel.ViewMode.allCases) { mode in
+                Text(mode.rawValue).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal)
+    }
+
+    private var cardGroups: some View {
+        let sections = vm.cardSectionsSorted()
+        return VStack(spacing: 10) {
+            if sections.isEmpty {
+                emptyState.padding(.horizontal).padding(.top, 20)
+            } else {
+                ForEach(sections) { section in
+                    CardSectionRow(section: section)
+                        .padding(.horizontal)
+                }
+            }
+        }
     }
 
     @ViewBuilder

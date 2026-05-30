@@ -262,6 +262,16 @@ public class InternalRewardsController {
         // Force delete to flush so subsequent inserts don't collide with the rows we just removed.
         ruleRepository.flush();
 
+        // Remap channel-restricted travel rules — Gemini puts them under TRAVEL_GENERAL with
+        // channel_restriction=TRAVEL_PORTAL_ONLY, which is misleading on the dashboard (user
+        // thinks regular travel earns 5%). Force canonical to TRAVEL_PORTAL.
+        for (RuleInput r : req.getRules()) {
+            if ("TRAVEL_PORTAL_ONLY".equals(r.getChannelRestriction())
+                && "TRAVEL_GENERAL".equals(r.getCanonicalCategory())) {
+                r.setCanonicalCategory("TRAVEL_PORTAL");
+            }
+        }
+
         // Dedupe by canonical_category — Gemini sometimes returns multiple rules for the same
         // category (e.g. dining mentioned in two sections). Keep highest-confidence; ties keep first.
         java.util.LinkedHashMap<String, RuleInput> deduped = new java.util.LinkedHashMap<>();
