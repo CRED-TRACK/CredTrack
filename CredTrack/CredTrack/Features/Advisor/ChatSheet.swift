@@ -4,11 +4,14 @@ import SwiftUI
 struct ChatSheet: View {
     @StateObject private var vm = ChatViewModel()
     let onClose: () -> Void
+    @FocusState private var composerFocused: Bool
 
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.ctBackground.ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture { composerFocused = false }
                 VStack(spacing: 0) {
                     messagesList
                     composer
@@ -20,6 +23,14 @@ struct ChatSheet: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Close") { onClose() }
                         .foregroundColor(.ctTextSecondary)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button {
+                        composerFocused = false
+                    } label: {
+                        Image(systemName: "keyboard.chevron.compact.down")
+                    }
                 }
             }
         }
@@ -33,6 +44,7 @@ struct ChatSheet: View {
                     ForEach(vm.messages) { msg in
                         ChatMessageBubble(message: msg)
                             .id(msg.id)
+                            .onTapGesture { composerFocused = false }
                     }
                     if vm.sending {
                         HStack(spacing: 8) {
@@ -68,6 +80,7 @@ struct ChatSheet: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .foregroundColor(.ctTextPrimary)
                     .font(.ctBody)
+                    .focused($composerFocused)
                     .submitLabel(.send)
                     .onSubmit { Task { await vm.send() } }
 
