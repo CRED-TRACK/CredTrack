@@ -3,8 +3,10 @@ package com.credtrack.backend.controller;
 import com.credtrack.backend.entity.*;
 import com.credtrack.backend.repository.CardProductRepository;
 import com.credtrack.backend.repository.CardRewardRuleRepository;
+import com.credtrack.backend.repository.CardTermsChunkRepository;
 import com.credtrack.backend.repository.CardTermsDocumentRepository;
 import com.credtrack.backend.repository.UserCardRepository;
+import com.credtrack.backend.service.CardTermsChunkInsertService;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -34,15 +36,21 @@ public class InternalRewardsController {
     private final CardRewardRuleRepository ruleRepository;
     private final UserCardRepository userCardRepository;
     private final CardTermsDocumentRepository termsDocumentRepository;
+    private final CardTermsChunkRepository termsChunkRepository;
+    private final CardTermsChunkInsertService chunkInsertService;
 
     public InternalRewardsController(CardProductRepository cardProductRepository,
                                      CardRewardRuleRepository ruleRepository,
                                      UserCardRepository userCardRepository,
-                                     CardTermsDocumentRepository termsDocumentRepository) {
+                                     CardTermsDocumentRepository termsDocumentRepository,
+                                     CardTermsChunkRepository termsChunkRepository,
+                                     CardTermsChunkInsertService chunkInsertService) {
         this.cardProductRepository = cardProductRepository;
         this.ruleRepository = ruleRepository;
         this.userCardRepository = userCardRepository;
         this.termsDocumentRepository = termsDocumentRepository;
+        this.termsChunkRepository = termsChunkRepository;
+        this.chunkInsertService = chunkInsertService;
     }
 
     @Getter @Builder
@@ -335,6 +343,58 @@ public class InternalRewardsController {
             req.getCardProductId(), deleted, saved, skipped);
         return ResponseEntity.ok(java.util.Map.of(
             "deleted_previous", deleted, "saved", saved, "skipped", skipped));
+    }
+
+    // ─── Chunk write-back endpoint (RAG ingest) ─────────────────────────────
+
+    @Getter @Setter
+    public static class ChunkInput {
+        private Integer chunkIndex;
+        private String chunkText;
+        private String headingPath;
+        private Integer tokenCount;
+        /** Embedding as JSON array of floats, e.g. [0.012, -0.041, ...]. Must match vector(768). */
+        private java.util.List<Float> embedding;
+    }
+
+    @Getter @Setter
+    public static class ChunksUpsertRequest {
+        private Long documentId;
+        private Long cardProductId;
+        private java.util.List<ChunkInput> chunks;
+    }
+
+    /** Replace-all chunks for a document. Called by ai-agent scraper after extraction. */
+    @PostMapping("/card-terms-chunks")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> upsertChunks(@RequestBody ChunksUpsertRequest req) {
+        if (req.getDocumentId() == null || req.getCardProductId() == null || req.getChunks() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "document_id, card_product_id, chunks required");
+        }
+        int deleted = chunkInsertService.deleteByDocumentId(req.getDocumentId());
+        java.util.List<CardTermsChunkInsertService.ChunkInsert> rows = new java.util.ArrayList<>();
+        int idx = 0;
+        for (ChunkInput c : req.getChunks()) {
+            if (c.getChunkText() == null || c.getEmbedding() == null || c.getEmbedding().isEmpty()) continue;
+            float[] embed = new float[c.getEmbedding().size()];
+            for (int i = 0; i < embed.length; i++) embed[i] = c.getEmbedding().get(i);
+            rows.add(new CardTermsChunkInsertService.ChunkInsert(
+                req.getDocumentId(),
+                req.getCardProductId(),
+                c.getChunkIndex() != null ? c.getChunkIndex() : idx,
+                c.getChunkText(),
+                c.getHeadingPath(),
+                c.getTokenCount(),
+                embed
+            ));
+            idx++;
+        }
+        int saved = chunkInsertService.insertBatch(rows);
+        log.info("chunks_upsert document_id={} deleted={} saved={}",
+            req.getDocumentId(), deleted, saved);
+        return ResponseEntity.ok(java.util.Map.of(
+            "deleted_previous", deleted, "saved", saved));
     }
 
     private CardProduct resolveProduct(QuarterlyRefreshRequest req) {

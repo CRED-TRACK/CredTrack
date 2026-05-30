@@ -30,8 +30,7 @@ struct AdvisorView: View {
                 }
             }
             .sheet(isPresented: $vm.chatSheetVisible) {
-                AdvisorChatPlaceholderSheet { vm.chatSheetVisible = false }
-                    .presentationDetents([.height(360)])
+                ChatSheet { vm.chatSheetVisible = false }
             }
             .sheet(isPresented: $vm.categoryPickerVisible) {
                 CategoryPickerSheet(
