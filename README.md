@@ -4,6 +4,14 @@ A personal finance app for tracking credit card statements and utility bills, wi
 
 ---
 
+## Demo
+
+53-second walkthrough of the iOS app: [docs/demo/credtrack-demo.mp4](docs/demo/credtrack-demo.mp4)
+
+Also on [LinkedIn](https://www.linkedin.com/feed/update/urn:li:activity:7465486264692068352/).
+
+---
+
 ## Repository Structure
 
 ```
